@@ -41,7 +41,6 @@ LIBS = ${CC}libbid.a $(shell pkg-config --libs gtk+-2.0 xmu)
 
 ifneq ($(filter $(UNAME_S),Linux FreeBSD),)
 	LDFLAGS += -Wl,--hash-style=both
-	LIBS += -lpthread
 endif
 
 ifneq ($(filter $(UNAME_S),FreeBSD),)
@@ -85,6 +84,7 @@ ifeq ($(AUDIO_ALSA),1)
 	# build environment doesn't change (still Fedora 6 at the time of writing),
 	# this is fine.
 	CXXFLAGS += -DAUDIO_ALSA -DALSALIB="\"libasound.so.2\""
+	LIBS += -lpthread
 	ifneq ($(filter $(UNAME_S),Linux),)
 		LIBS += -ldl
 	endif

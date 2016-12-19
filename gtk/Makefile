@@ -70,10 +70,11 @@ else
 	EXE = free42bin
 endif
 
-ifdef FREE42_FPTEST
-CFLAGS += -DFREE42_FPTEST
-SRCS += readtest.c readtest_lines.cc
-OBJS += readtest.o readtest_lines.o
+ifeq ($(FREE42_FPTEST),1)
+	CFLAGS += -DFREE42_FPTEST
+	CXXFLAGS += -DFREE42_FPTEST
+	SRCS += readtest.c readtest_lines.cc
+	OBJS += readtest.o readtest_lines.o
 endif
 
 ifeq ($(AUDIO_ALSA),1)

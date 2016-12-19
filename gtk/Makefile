@@ -15,13 +15,16 @@
 # along with this program; if not, see http://www.gnu.org/licenses/.
 ###############################################################################
 
-CFLAGS = -MMD \
+export CC
+export MAKE
+UNAME_S := $(shell uname -s)
+
+CFLAGS += -MMD \
 	 -Wall \
 	 -Wno-parentheses \
 	 -Wno-write-strings \
 	 -g \
-	 -I/usr/X11R6/include \
-	 $(shell pkg-config --cflags gtk+-2.0) \
+	 $(shell pkg-config --cflags gtk+-2.0 xmu) \
 	 -DVERSION="\"$(shell cat ../VERSION)\"" \
 	 -DDECIMAL_CALL_BY_REFERENCE=1 \
 	 -DDECIMAL_GLOBAL_ROUNDING=1 \
@@ -29,17 +32,20 @@ CFLAGS = -MMD \
 	 -DDECIMAL_GLOBAL_EXCEPTION_FLAGS=1 \
 	 -DDECIMAL_GLOBAL_EXCEPTION_FLAGS_ACCESS_FUNCTIONS=1
 
-CXXFLAGS = $(CFLAGS) \
+CXXFLAGS += $(CFLAGS) \
 	 -fno-exceptions \
 	 -fno-rtti \
 	 -D_WCHAR_T_DEFINED
 
-LDFLAGS = -L/usr/X11R6/lib
-LIBS = gcc111libbid.a -lXmu $(shell pkg-config --libs gtk+-2.0)
+LIBS = ${CC}libbid.a $(shell pkg-config --libs gtk+-2.0 xmu)
 
-ifeq "$(shell uname -s)" "Linux"
-LDFLAGS += -Wl,--hash-style=both
-LIBS += -lpthread
+ifneq ($(filter $(UNAME_S),Linux FreeBSD),)
+	LDFLAGS += -Wl,--hash-style=both
+	LIBS += -lpthread
+endif
+
+ifeq ($(UNAME_S),FreeBSD)
+	CXXFLAGS += -DNO_SINCOS
 endif
 
 SRCS = shell_main.cc shell_skin.cc skins.cc keymap.cc shell_loadimage.cc \
@@ -57,11 +63,11 @@ OBJS = shell_main.o shell_skin.o skins.o keymap.o shell_loadimage.o \
 	core_math1.o core_math2.o core_phloat.o core_sto_rcl.o \
 	core_tables.o core_variables.o
 
-ifdef BCD_MATH
-CXXFLAGS += -DBCD_MATH
-EXE = free42dec
+ifeq ($(BCD_MATH),1)
+	CXXFLAGS += -DBCD_MATH
+	EXE = free42dec
 else
-EXE = free42bin
+	EXE = free42bin
 endif
 
 ifdef FREE42_FPTEST
@@ -70,16 +76,16 @@ SRCS += readtest.c readtest_lines.cc
 OBJS += readtest.o readtest_lines.o
 endif
 
-ifdef AUDIO_ALSA
-# Note: the name of the libasound shared library that is usually compiled into
-# the executable is defined in the corresponding *.la file, in the 'dlname'
-# property. I suppose it would be better to grab it from there at build time,
-# rather than hard-coding it into the Makefile like this, but as long as the
-# build environment doesn't change (still Fedora 6 at the time of writing),
-# this is fine.
-CXXFLAGS += -DAUDIO_ALSA -DALSALIB="\"libasound.so.2\""
-SRCS += audio_alsa.cc
-OBJS += audio_alsa.o
+ifeq ($(AUDIO_ALSA),1)
+	# Note: the name of the libasound shared library that is usually compiled into
+	# the executable is defined in the corresponding *.la file, in the 'dlname'
+	# property. I suppose it would be better to grab it from there at build time,
+	# rather than hard-coding it into the Makefile like this, but as long as the
+	# build environment doesn't change (still Fedora 6 at the time of writing),
+	# this is fine.
+	CXXFLAGS += -DAUDIO_ALSA -DALSALIB="\"libasound.so.2\""
+	SRCS += audio_alsa.cc
+	OBJS += audio_alsa.o
 endif
 
 $(EXE): $(OBJS)
@@ -111,22 +117,15 @@ symlinks:
 	ln -s IntelRDFPMathLib20U1/TESTS/readtest.c
 	touch symlinks
 
+cleaner: FORCE clean
+	rm -f free42bin free42bin.exe free42dec free42dec.exe
+
 clean: FORCE
 	rm -f `find . -type l` \
 		skin2cc skin2cc.exe skins.cc \
 		keymap2cc keymap2cc.exe keymap.cc \
 	        readtest_lines.cc \
-	        gcc111libbid.a \
-		*.o *.d *.i *.ii *.s symlinks core.*
-	rm -rf IntelRDFPMathLib20U1
-
-cleaner: FORCE
-	rm -f `find . -type l` \
-		free42bin free42bin.exe free42dec free42dec.exe \
-		skin2cc skin2cc.exe skins.cc \
-		keymap2cc keymap2cc.exe keymap.cc \
-	        readtest_lines.cc \
-	        gcc111libbid.a \
+	        ${CC}libbid.a \
 		*.o *.d *.i *.ii *.s symlinks core.*
 	rm -rf IntelRDFPMathLib20U1
 

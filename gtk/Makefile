@@ -41,7 +41,6 @@ LIBS = ${CC}libbid.a $(shell pkg-config --libs gtk+-2.0 xmu)
 
 ifneq ($(filter $(UNAME_S),Linux FreeBSD),)
 	LDFLAGS += -Wl,--hash-style=both
-	LIBS += -lpthread
 endif
 
 ifneq ($(filter $(UNAME_S),FreeBSD),)

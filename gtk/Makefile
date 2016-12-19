@@ -44,7 +44,7 @@ ifneq ($(filter $(UNAME_S),Linux FreeBSD),)
 	LIBS += -lpthread
 endif
 
-ifeq ($(UNAME_S),FreeBSD)
+ifneq ($(filter $(UNAME_S),FreeBSD),)
 	CXXFLAGS += -DNO_SINCOS
 endif
 

@@ -1,19 +1,30 @@
 #!/bin/sh -e
 
+if [ -z "$( /usr/bin/which gmake )" ]
+then
+	MAKE=make
+else
+	MAKE=gmake
+fi
+
 unset BCD_MATH
 cd gtk
-make cleaner
-make -e AUDIO_ALSA=1
-make clean
-make -e BCD_MATH=1 AUDIO_ALSA=1
+${MAKE} cleaner
+${MAKE} -e AUDIO_ALSA=1 BCD_MATH=0
+${MAKE} clean
+${MAKE} -e AUDIO_ALSA=1 BCD_MATH=1
+${MAKE} clean
 cd ..
-rm -rf Free42Linux
-mkdir Free42Linux
-cp gtk/README Free42Linux
-cp gtk/free42bin Free42Linux
-cp gtk/free42dec Free42Linux
-strip Free42Linux/free42bin
-strip Free42Linux/free42dec
+
+UNAME_S=$( uname -s )
+
+rm -rf Free42${UNAME_S}
+mkdir Free42${UNAME_S}
+cp gtk/README Free42${UNAME_S}
+cp gtk/free42bin Free42${UNAME_S}
+cp gtk/free42dec Free42${UNAME_S}
+strip Free42${UNAME_S}/free42bin
+strip Free42${UNAME_S}/free42dec
 mkdir -p packages
-tar cvfz packages/Free42Linux.tgz Free42Linux
-rm -rf Free42Linux
+tar cvfz packages/Free42${UNAME_S}.tgz Free42${UNAME_S}
+rm -rf Free42${UNAME_S}

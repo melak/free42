@@ -1,0 +1,63 @@
+diff -urN LIBRARY.orig/float128/op_system.h LIBRARY/float128/op_system.h
+--- LIBRARY.orig/float128/op_system.h	2011-06-29 20:33:08.000000000 +0200
++++ LIBRARY/float128/op_system.h	2016-12-19 01:14:11.855405000 +0100
+@@ -224,6 +224,22 @@
+ 
+ #       define interix 11
+ #       define OP_SYSTEM interix
++
++#elif defined(__FreeBSD__)
++#       undef  dos
++#       undef  vms
++#       undef  wnt
++#       undef  osf
++#       undef  hp_ux
++#       undef  linux
++#       undef  unicos
++#       undef  ultrix
++#       undef  win64
++#       undef  darwin 
++#       undef  interix 
++
++#       define freebsd 12
++#       define OP_SYSTEM freebsd
+ #else
+ 
+ #	error Operating system must be specified.
+@@ -235,7 +251,8 @@
+ 	OP_SYSTEM == linux || \
+ 	OP_SYSTEM == osf || \
+ 	OP_SYSTEM == ultrix || \
+-	OP_SYSTEM == unicos \
++	OP_SYSTEM == unicos || \
++	OP_SYSTEM == freebsd \
+ )
+ 
+ #endif  /* OP_SYSTEM_H */
+diff -urN LIBRARY.orig/makefile.iml_head LIBRARY/makefile.iml_head
+--- LIBRARY.orig/makefile.iml_head	2011-07-12 17:26:21.000000000 +0200
++++ LIBRARY/makefile.iml_head	2016-12-19 01:10:43.546709000 +0100
+@@ -592,8 +592,15 @@
+         _NUM_CPUS := $(shell /usr/sbin/system_profiler SPHardwareDataType | \
+                        egrep Processors | sed -e "s/^.* //")
+     else
++    ifeq ($(IML_HOST_OS),FREEBSD)
++        _NUM_CPUS := $(shell sysctl -n hw.ncpu)
++    else
+         _NUM_CPUS := $(shell egrep processor /proc/cpuinfo | wc -l)
+     endif
++    endif
++else
++ifeq ($(IML_HOST_OS_TYPE),FREEBSD)
++    _NUM_CPUS := $(shell sysctl -w hw.ncpu)
+ else
+     ifeq ($(IML_HOST_OS_TYPE),WINNT)
+         _HUM_CPUS := $(NUMBER_OF_PROCESSORS)
+@@ -601,6 +608,7 @@
+         $(error Don't know how to determine architecture for $(IML_HOST_OS))
+     endif
+ endif
++endif
+ 
+ IML_NUM_CPUS ?= $(_NUM_CPUS)
+ 

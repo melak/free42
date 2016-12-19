@@ -84,6 +84,9 @@ ifeq ($(AUDIO_ALSA),1)
 	# build environment doesn't change (still Fedora 6 at the time of writing),
 	# this is fine.
 	CXXFLAGS += -DAUDIO_ALSA -DALSALIB="\"libasound.so.2\""
+	ifneq ($(filter $(UNAME_S),Linux),)
+		LIBS += -ldl
+	endif
 	SRCS += audio_alsa.cc
 	OBJS += audio_alsa.o
 endif

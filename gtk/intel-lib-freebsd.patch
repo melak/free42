@@ -1,6 +1,6 @@
 diff -urN LIBRARY.orig/float128/op_system.h LIBRARY/float128/op_system.h
 --- LIBRARY.orig/float128/op_system.h	2011-06-29 20:33:08.000000000 +0200
-+++ LIBRARY/float128/op_system.h	2016-12-19 01:14:11.855405000 +0100
++++ LIBRARY/float128/op_system.h	2016-12-19 11:47:08.574472000 +0100
 @@ -224,6 +224,22 @@
  
  #       define interix 11
@@ -36,8 +36,8 @@ diff -urN LIBRARY.orig/float128/op_system.h LIBRARY/float128/op_system.h
  #endif  /* OP_SYSTEM_H */
 diff -urN LIBRARY.orig/makefile.iml_head LIBRARY/makefile.iml_head
 --- LIBRARY.orig/makefile.iml_head	2011-07-12 17:26:21.000000000 +0200
-+++ LIBRARY/makefile.iml_head	2016-12-19 01:10:43.546709000 +0100
-@@ -592,8 +592,15 @@
++++ LIBRARY/makefile.iml_head	2016-12-19 11:47:44.247772000 +0100
+@@ -592,8 +592,12 @@
          _NUM_CPUS := $(shell /usr/sbin/system_profiler SPHardwareDataType | \
                         egrep Processors | sed -e "s/^.* //")
      else
@@ -47,17 +47,6 @@ diff -urN LIBRARY.orig/makefile.iml_head LIBRARY/makefile.iml_head
          _NUM_CPUS := $(shell egrep processor /proc/cpuinfo | wc -l)
      endif
 +    endif
-+else
-+ifeq ($(IML_HOST_OS_TYPE),FREEBSD)
-+    _NUM_CPUS := $(shell sysctl -w hw.ncpu)
  else
      ifeq ($(IML_HOST_OS_TYPE),WINNT)
          _HUM_CPUS := $(NUMBER_OF_PROCESSORS)
-@@ -601,6 +608,7 @@
-         $(error Don't know how to determine architecture for $(IML_HOST_OS))
-     endif
- endif
-+endif
- 
- IML_NUM_CPUS ?= $(_NUM_CPUS)
- 

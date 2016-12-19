@@ -43,7 +43,7 @@
 #endif
 
 
-static char bigchars[130][5] =
+static unsigned char bigchars[130][5] =
     {
         { 0x08, 0x08, 0x2a, 0x08, 0x08 },
         { 0x22, 0x14, 0x08, 0x14, 0x22 },
@@ -177,7 +177,7 @@ static char bigchars[130][5] =
         { 0x04, 0x08, 0x70, 0x08, 0x04 }
     };
 
-static char smallchars[329] =
+static unsigned char smallchars[329] =
     {
         0x00, 0x00, 0x00,
         0x5c,

@@ -130,7 +130,8 @@ clean: FORCE
 		keymap2cc keymap2cc.exe keymap.cc \
 	        readtest_lines.cc \
 	        ${CC}libbid.a \
-		*.o *.d *.i *.ii *.s symlinks core.*
+		*.o *.d *.i *.ii *.s symlinks core.* \
+		free42.log
 	rm -rf IntelRDFPMathLib20U1
 
 FORCE:

@@ -18,13 +18,16 @@ cd ..
 
 UNAME_S=$( uname -s )
 
-rm -rf Free42${UNAME_S}
-mkdir Free42${UNAME_S}
-cp gtk/README Free42${UNAME_S}
-cp gtk/free42bin Free42${UNAME_S}
-cp gtk/free42dec Free42${UNAME_S}
-strip Free42${UNAME_S}/free42bin
-strip Free42${UNAME_S}/free42dec
-mkdir -p packages
-tar cvfz packages/Free42${UNAME_S}.tgz Free42${UNAME_S}
-rm -rf Free42${UNAME_S}
+if [ -f gtk/free42bin -a -f gtk/free42dec ]
+then
+	rm -rf Free42${UNAME_S}
+	mkdir Free42${UNAME_S}
+	cp gtk/README Free42${UNAME_S}
+	cp gtk/free42bin Free42${UNAME_S}
+	cp gtk/free42dec Free42${UNAME_S}
+	strip Free42${UNAME_S}/free42bin
+	strip Free42${UNAME_S}/free42dec
+	mkdir -p packages
+	tar cvfz packages/Free42${UNAME_S}.tgz Free42${UNAME_S}
+	rm -rf Free42${UNAME_S}
+fi

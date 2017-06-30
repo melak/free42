@@ -1,0 +1,9 @@
+*.a
+*.d
+*.o
+*.swp
+
+packages
+gtk/free42bin
+gtk/free42dec
+gtk/free42.log

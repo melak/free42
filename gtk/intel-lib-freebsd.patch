@@ -1,6 +1,6 @@
 diff -urN LIBRARY.orig/float128/op_system.h LIBRARY/float128/op_system.h
 --- LIBRARY.orig/float128/op_system.h	2011-06-29 20:33:08.000000000 +0200
-+++ LIBRARY/float128/op_system.h	2016-12-19 11:47:08.574472000 +0100
++++ LIBRARY/float128/op_system.h	2017-07-02 12:35:24.192744000 +0200
 @@ -224,6 +224,22 @@
  
  #       define interix 11
@@ -36,7 +36,7 @@ diff -urN LIBRARY.orig/float128/op_system.h LIBRARY/float128/op_system.h
  #endif  /* OP_SYSTEM_H */
 diff -urN LIBRARY.orig/makefile.iml_head LIBRARY/makefile.iml_head
 --- LIBRARY.orig/makefile.iml_head	2011-07-12 17:26:21.000000000 +0200
-+++ LIBRARY/makefile.iml_head	2016-12-19 11:47:44.247772000 +0100
++++ LIBRARY/makefile.iml_head	2017-07-02 12:36:32.920395000 +0200
 @@ -592,8 +592,12 @@
          _NUM_CPUS := $(shell /usr/sbin/system_profiler SPHardwareDataType | \
                         egrep Processors | sed -e "s/^.* //")

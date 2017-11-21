@@ -487,6 +487,13 @@ void skin_load(long *width, long *height) {
             }
         }
     }
+    
+    // Hack: I'm masking off the lowest bit from the display location, because
+    // painting can get screwy when these coordinates are odd. No idea why.
+    if (skin.width >= 640) {
+        display_loc.x &= ~1;
+        display_loc.y &= ~1;
+    }
 
     skin_close();
 

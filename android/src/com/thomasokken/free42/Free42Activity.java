@@ -89,7 +89,7 @@ public class Free42Activity extends Activity {
 
     private static final String[] builtinSkinNames = new String[] { "Standard", "Landscape" };
     
-    private static final int SHELL_VERSION = 9;
+    private static final int SHELL_VERSION = 10;
     
     private static final int PRINT_BACKGROUND_COLOR = Color.LTGRAY;
     
@@ -135,6 +135,7 @@ public class Free42Activity extends Activity {
     private boolean[] skinSmoothing = new boolean[2];
     private boolean[] displaySmoothing = new boolean[2];
 
+    private boolean alwaysRepaintFullDisplay = false;
     private boolean keyClicksEnabled = true;
     private boolean keyVibrationEnabled = false;
     private int preferredOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
@@ -172,6 +173,7 @@ public class Free42Activity extends Activity {
             init_shell_state(-1);
             init_mode = 0;
         }
+        setAlwaysRepaintFullDisplay(alwaysRepaintFullDisplay);
 
         if (style == 1)
             setTheme(android.R.style.Theme_NoTitleBar_Fullscreen);
@@ -636,6 +638,7 @@ public class Free42Activity extends Activity {
         preferencesDialog.setKeyVibration(keyVibrationEnabled);
         preferencesDialog.setOrientation(preferredOrientation);
         preferencesDialog.setStyle(style);
+        preferencesDialog.setDisplayFullRepaint(alwaysRepaintFullDisplay);
         preferencesDialog.setSkinSmoothing(skinSmoothing[orientation]);
         preferencesDialog.setDisplaySmoothing(displaySmoothing[orientation]);
         preferencesDialog.setPrintToText(ShellSpool.printToTxt);
@@ -657,7 +660,9 @@ public class Free42Activity extends Activity {
         int oldOrientation = preferredOrientation;
         preferredOrientation = preferencesDialog.getOrientation();
         style = preferencesDialog.getStyle();
+        alwaysRepaintFullDisplay = preferencesDialog.getDisplayFullRepaint();
         putCoreSettings(cs);
+        setAlwaysRepaintFullDisplay(alwaysRepaintFullDisplay);
 
         ShellSpool.maxGifHeight = preferencesDialog.getMaxGifHeight();
 
@@ -1142,6 +1147,8 @@ public class Free42Activity extends Activity {
                     style = maxStyle;
             } else
                 style = 0;
+            if (shell_version >= 10)
+                alwaysRepaintFullDisplay = state_read_boolean();
             init_shell_state(shell_version);
         } catch (IllegalArgumentException e) {
             return false;
@@ -1189,7 +1196,10 @@ public class Free42Activity extends Activity {
             style = 0;
             // fall through
         case 9:
-            // current version (SHELL_VERSION = 9),
+            alwaysRepaintFullDisplay = false;
+            // fall through
+        case 10:
+            // current version (SHELL_VERSION = 10),
             // so nothing to do here since everything
             // was initialized from the state file.
             ;
@@ -1218,6 +1228,7 @@ public class Free42Activity extends Activity {
             state_write_boolean(displaySmoothing[1]);
             state_write_boolean(keyVibrationEnabled);
             state_write_int(style);
+            state_write_boolean(alwaysRepaintFullDisplay);
         } catch (IllegalArgumentException e) {}
     }
     
@@ -1392,6 +1403,7 @@ public class Free42Activity extends Activity {
     private native void getCoreSettings(CoreSettings settings);
     private native void putCoreSettings(CoreSettings settings);
     private native void redisplay();
+    private native void setAlwaysRepaintFullDisplay(boolean alwaysRepaint);
 
     private static class CoreSettings {
         public boolean matrix_singularmatrix;

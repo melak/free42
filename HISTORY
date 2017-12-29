@@ -1,3 +1,24 @@
+2017-12-26: release 2.0.8
+
+* MENU (activating the programmable menu) while in ALPHA mode didn't turn off
+  the alpha_mode flag, leading to bad behavior or even crashes if any menu keys
+  were subsequently pressed.
+
+2017-12-21: release 2.0.7c (Windows only)
+
+* Decimal: SIN and COS of 45 degrees or 50 grads returned an inaccurate result,
+  correct to only 16 digits. Fixed.
+
+2017-12-18: release 2.0.7b (Android only)
+
+* The "Always Paint Entire Display" setting, introduced in the previous
+  version, didn't stick after app restart. Fixed.
+
+2017-12-17: release 2.0.7a (Android only)
+
+* Added "Always Paint Entire Display" option. This prevents display glitches
+  with certain combinations of devices and skins.
+
 2017-11-19: release 2.0.7
 
 * Changed the RAN and SEED functions to match the behavior of the real HP-42S.
@@ -13,8 +34,8 @@
 * Windows, Linux, and Mac versions: added keyboard mappings g => GTO and
   p => PI. On existing installations, users must delete or rename the existing
   keymap and restart for this to take effect.
-* iOS version: painting the display could be glitchy if either or both of its
-  coordinates were odd. Fixed by forcing them to be even.
+* iPhone version: painting the display could be glitchy if either or both of
+  its coordinates were odd. Fixed by forcing them to be even.
 
 2017-08-12: release 2.0.6
 

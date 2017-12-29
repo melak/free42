@@ -315,6 +315,14 @@ Java_com_thomasokken_free42_Free42Activity_redisplay(JNIEnv *env, jobject thiz) 
     redisplay();
 }
 
+static bool alwaysRepaintFullDisplay = false;
+
+extern "C" void
+Java_com_thomasokken_free42_Free42Activity_setAlwaysRepaintFullDisplay(JNIEnv *env, jobject thiz, jboolean repaintFull) {
+    Tracer T("setAlwaysRepaintFullDisplay");
+    alwaysRepaintFullDisplay = repaintFull;
+}
+
 
 /***************************************************************/
 /* Here followeth the implementation of the shell.h interface. */
@@ -329,6 +337,12 @@ Java_com_thomasokken_free42_Free42Activity_redisplay(JNIEnv *env, jobject thiz) 
 void shell_blitter(const char *bits, int bytesperline, int x, int y,
                          int width, int height) {
     Tracer T("shell_blitter");
+    if (alwaysRepaintFullDisplay) {
+        x = 0;
+        y = 0;
+        width = 131;
+        height = 16;
+    }
     JNIEnv *env = getJniEnv();
     jclass klass = env->GetObjectClass(g_activity);
     jmethodID mid = env->GetMethodID(klass, "shell_blitter", "([BIIIII)V");

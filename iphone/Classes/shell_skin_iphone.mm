@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Free42 -- an HP-42S calculator simulator
- * Copyright (C) 2004-2017  Thomas Okken
+ * Copyright (C) 2004-2018  Thomas Okken
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -493,6 +493,8 @@ void skin_load(long *width, long *height) {
     if (skin.width >= 640) {
         display_loc.x &= ~1;
         display_loc.y &= ~1;
+        display_scale.x &= ~1;
+        display_scale.y &= ~1;
     }
 
     skin_close();

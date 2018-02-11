@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Free42 -- an HP-42S calculator simulator
- * Copyright (C) 2004-2017  Thomas Okken
+ * Copyright (C) 2004-2018  Thomas Okken
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -1218,6 +1218,12 @@ static bool unpersist_globals(int4 ver) {
     free_vartype(reg_x);
     if (!unpersist_vartype(&reg_x, padded))
         goto done;
+
+    // Hack to deal with bad Android state files
+    if (reg_x == NULL)
+        goto done;
+    // End of hack
+
     free_vartype(reg_y);
     if (!unpersist_vartype(&reg_y, padded))
         goto done;
@@ -1937,7 +1943,7 @@ void store_command(int4 pc, int command, arg_struct *arg) {
         prgm->size = pc;
         prgm->text[prgm->size++] = CMD_END;
         prgm->text[prgm->size++] = ARGTYPE_NONE;
-        if (flags.f.trace_print || flags.f.normal_print)
+        if (flags.f.printer_exists && (flags.f.trace_print || flags.f.normal_print))
             print_program_line(current_prgm - 1, pc);
 
         rebuild_label_table();
@@ -2010,7 +2016,7 @@ void store_command(int4 pc, int command, arg_struct *arg) {
     for (pos = 0; pos < bufptr; pos++)
         prgm->text[pc + pos] = buf[pos];
     prgm->size += bufptr;
-    if (command != CMD_END && (flags.f.trace_print || flags.f.normal_print))
+    if (command != CMD_END && flags.f.printer_exists && (flags.f.trace_print || flags.f.normal_print))
         print_program_line(current_prgm, pc);
     
     if (command == CMD_END ||
@@ -2633,11 +2639,11 @@ void hard_reset(int bad_state_file) {
     flags.f.eng_or_all = 0;
     flags.f.grad = 0;
     flags.f.rad = 0;
-    flags.f.continuous_on = 0;
+    /* flags.f.VIRTUAL_continuous_on = 0; */
     /* flags.f.VIRTUAL_solving = 0; */
     /* flags.f.VIRTUAL_integrating = 0; */
     /* flags.f.VIRTUAL_variable_menu = 0; */
-    flags.f.alpha_mode = 0;
+    /* flags.f.VIRTUAL_alpha_mode = 0; */
     /* flags.f.VIRTUAL_low_battery = 0; */
     flags.f.message = 1;
     flags.f.two_line_message = 0;

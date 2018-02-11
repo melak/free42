@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Free42 -- an HP-42S calculator simulator
- * Copyright (C) 2004-2017  Thomas Okken
+ * Copyright (C) 2004-2018  Thomas Okken
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -249,6 +249,16 @@ bool string_equals(const char *s1, int s1len, const char *s2, int s2len) {
     return true;
 }
 
+#if (!defined(ANDROID) && !defined(IPHONE))
+static bool always_on = false;
+int shell_always_on(int ao) {
+    int ret = always_on ? 1 : 0;
+    if (ao != -1)
+        always_on = ao == 1;
+    return ret;
+}
+#endif
+
 int virtual_flag_handler(int flagop, int flagnum) {
     /* NOTE: the determination which flag numbers are handled by this
      * function is made by docmd_sf() etc.; they do this based on a constant
@@ -284,6 +294,16 @@ int virtual_flag_handler(int flagop, int flagnum) {
                     return ERR_INTERNAL_ERROR;
             }
         }
+        case 44: /* continuous on */ {
+            switch (flagop) {
+                case FLAGOP_FS_T:
+                    return shell_always_on(-1) ? ERR_YES : ERR_NO;
+                case FLAGOP_FC_T:
+                    return shell_always_on(-1) ? ERR_NO : ERR_YES;
+                default:
+                    return ERR_INTERNAL_ERROR;
+            }
+        }
         case 45: /* solving */ {
             switch (flagop) {
                 case FLAGOP_FS_T:
@@ -311,6 +331,17 @@ int virtual_flag_handler(int flagop, int flagnum) {
                     return its_on ? ERR_YES : ERR_NO;
                 case FLAGOP_FC_T:
                     return its_on ? ERR_NO : ERR_YES;
+                default:
+                    return ERR_INTERNAL_ERROR;
+            }
+        }
+        case 48: /* alpha_mode */ {
+            bool alpha = core_alpha_menu();
+            switch (flagop) {
+                case FLAGOP_FS_T:
+                    return alpha ? ERR_YES : ERR_NO;
+                case FLAGOP_FC_T:
+                    return alpha ? ERR_NO : ERR_YES;
                 default:
                     return ERR_INTERNAL_ERROR;
             }
@@ -719,7 +750,7 @@ static phloat sin_or_cos_deg(phloat x, bool do_sin) {
     }
     phloat r;
     if (x == 45)
-        r = sqrt(0.5);
+        r = sqrt(phloat(0.5));
     else {
         if (x > 45) {
             x = 90 - x;
@@ -759,7 +790,7 @@ static phloat sin_or_cos_grad(phloat x, bool do_sin) {
     }
     phloat r;
     if (x == 50)
-        r = sqrt(0.5);
+        r = sqrt(phloat(0.5));
     else {
         if (x > 50) {
             x = 100 - x;

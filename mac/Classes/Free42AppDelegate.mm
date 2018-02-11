@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Free42 -- an HP-42S calculator simulator
- * Copyright (C) 2004-2017  Thomas Okken
+ * Copyright (C) 2004-2018  Thomas Okken
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -16,6 +16,7 @@
  *****************************************************************************/
 
 #import <AudioToolbox/AudioServices.h>
+#import <IOKit/ps/IOPowerSources.h>
 #import <sys/stat.h>
 #import <sys/time.h>
 #import <pthread.h>
@@ -73,9 +74,11 @@ static int ann_updown = 0;
 static int ann_shift = 0;
 static int ann_print = 0;
 static int ann_run = 0;
-//static int ann_battery = 0;
+static int ann_battery = 0;
 static int ann_g = 0;
 static int ann_rad = 0;
+static pthread_mutex_t ann_print_timeout_mutex = PTHREAD_MUTEX_INITIALIZER;
+static bool ann_print_timeout_active = false;
 
 unsigned char *print_bitmap;
 int printout_top;
@@ -212,6 +215,10 @@ static bool is_file(const char *name);
         print_bitmap[n] = 0;
 }
 
+static void low_battery_checker(CFRunLoopTimerRef timer, void *info) {
+    shell_low_battery();
+}
+
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
     
     /***********************************************************/
@@ -282,6 +289,9 @@ static bool is_file(const char *name);
     }
     if (core_powercycle())
         [self startRunner];
+    
+    CFRunLoopTimerRef lowBatTimer = CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent(), 60, 0, 0, low_battery_checker, NULL);
+    CFRunLoopAddTimer(CFRunLoopGetCurrent(), lowBatTimer, kCFRunLoopCommonModes);
 }
 
 - (void)applicationWillTerminate:(NSNotification *)aNotification {
@@ -378,7 +388,7 @@ static bool is_file(const char *name);
 - (IBAction) showAbout:(id)sender {
     const char *version = [Free42AppDelegate getVersion];
     [aboutVersion setStringValue:[NSString stringWithFormat:@"Free42 %s", version]];
-    [aboutCopyright setStringValue:@"© 2004-2017 Thomas Okken"];
+    [aboutCopyright setStringValue:@"© 2004-2018 Thomas Okken"];
     [NSApp runModalForWindow:aboutWindow];
 }
 
@@ -485,9 +495,9 @@ static bool is_file(const char *name);
 }
 
 - (IBAction) exportPrograms:(id)sender {
-    char buf[10000];
-    int count = core_list_programs(buf, 10000);
-    [programListDataSource setProgramNames:buf count:count];
+    char *buf = core_list_programs();
+    [programListDataSource setProgramNames:buf];
+    free(buf);
     [programListView reloadData];
     [NSApp runModalForWindow:selectProgramsWindow];
 }
@@ -706,6 +716,34 @@ static int timeout3_delay;
     pthread_mutex_unlock(&shell_helper_mutex);
 }
 
+- (void) turn_off_print_ann {
+    pthread_mutex_lock(&ann_print_timeout_mutex);
+    ann_print = 0;
+    skin_update_annunciator(3, 0);
+    ann_print_timeout_active = FALSE;
+    pthread_mutex_unlock(&ann_print_timeout_mutex);
+}
+
+- (void) print_ann_helper:(NSNumber *)set {
+    int prt = [set intValue];
+    [set release];
+    pthread_mutex_lock(&ann_print_timeout_mutex);
+    if (ann_print_timeout_active) {
+        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(turn_off_print_ann) object:NULL];
+        ann_print_timeout_active = FALSE;
+    }
+    if (ann_print != prt) {
+        if (prt) {
+            ann_print = 1;
+            skin_update_annunciator(3, ann_print);
+        } else {
+            [self performSelector:@selector(turn_off_print_ann) withObject:NULL afterDelay:1];
+            ann_print_timeout_active = TRUE;
+        }
+    }
+    pthread_mutex_unlock(&ann_print_timeout_mutex);
+}
+
 @end
 
 static void shell_keydown() {
@@ -827,7 +865,7 @@ void calc_keydown(NSString *characters, NSUInteger flags, unsigned short keycode
     
     bool ctrl = (flags & NSControlKeyMask) != 0;
     bool alt = (flags & NSAlternateKeyMask) != 0;
-    bool shift = (flags & (NSShiftKeyMask | NSAlphaShiftKeyMask)) != 0;
+    bool shift = (flags & NSShiftKeyMask) != 0;
     bool cshift = ann_shift != 0;
     
     if (ckey != 0) {
@@ -990,8 +1028,12 @@ void shell_beeper(int frequency, int duration) {
 }
 
 int shell_low_battery() {
-    // TODO!
-    return 0;
+    int lowbat = IOPSGetBatteryWarningLevel() != kIOPSLowBatteryWarningNone;
+    if (ann_battery != lowbat) {
+        ann_battery = lowbat;
+        skin_update_annunciator(5, ann_battery);
+     }
+    return lowbat;
 }
 
 uint4 shell_milliseconds() {
@@ -1044,9 +1086,9 @@ void shell_annunciators(int updn, int shf, int prt, int run, int g, int rad) {
         ann_shift = shf;
         skin_update_annunciator(2, ann_shift);
     }
-    if (prt != -1 && ann_print != prt) {
-        ann_print = prt;
-        skin_update_annunciator(3, ann_print);
+    if (prt != -1) {
+        NSNumber *n = [[NSNumber numberWithInt:prt] retain];
+        [instance performSelectorOnMainThread:@selector(print_ann_helper:) withObject:n waitUntilDone:NO];
     }
     if (run != -1 && ann_run != run) {
         ann_run = run;

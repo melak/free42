@@ -1,3 +1,107 @@
+2018-02-10: release 2.0.14
+
+* In Export Programs, removed the hard-coded buffer size for the list of
+  programs, so you should now see all your programs in the list, no matter how
+  many there are.
+* When Pasting complex numbers in a+bi notation, the imaginary unit must now be
+  either i or j; the alternative spellings I and J are no longer recognized.
+
+2018-02-06: release 2.0.13
+
+* Paste didn't handle numbers with negative exponents correctly. Fixed.
+
+2018-02-02: release 2.0.12d (iPhone only)
+
+* Fixed crash in GIF printing.
+
+2018-01-30: release 2.0.12c (Android only)
+
+* Another fix for crash on orientation change while printing.
+
+2018-01-29: release 2.0.12b (Android only)
+
+* Switching between portrait and landscape modes, while printing was in
+  progress, could cause a crash. Fixed.
+
+2018-01-28: release 2.0.12a (Android only)
+
+* Fixed handling of state files that were corrupted in a way that caused
+  persistent crashes on the first keystroke.
+
+2018-01-27: release 2.0.12
+
+* Fixed pasting of SIZE lines.
+* When pasting numbers, spaces are now allowed as thousands separators.
+* Mac and MacDashboard versions: are now 64-bit.
+* Mac and GTK versions: fixed Caps Lock handling, so Caps Lock + Esc no longer
+  exits.
+* Android and iPhone versions: implemented "continuous on" mode (ON function,
+  flag 44).
+
+2018-01-26: release 2.0.11a (Android only)
+
+* Removed the cleanup of variables in core_quit(); it looks like this was
+  responsible for the failure mode where the app would crash at the first
+  keystroke, consistently, forcing uninstall/reinstall.
+* Pasting numbers that ended in CRLF, as when copying a single cell from Excel,
+  didn't work; they were interpreted as strings. Fixed.
+
+2018-01-14: release 2.0.11
+
+* Copy now ignores flag 29 (thousands separators) and always copies numbers
+  without separators. This fixes certain surprising / undesirable behaviors
+  when pasting numbers into spreadsheets or programs.
+* When entering a program line in NORM or TRACE modes, the line would be
+  printed, even when printing was disabled. Fixed.
+* MATA and MATB, in the SIMQ menu, would crash if the MATA or MATB variables
+  were missing. Fixed, and also cleaned up type checks in MATX.
+* Android version: printing lots of output quickly, for example, by running a
+  program in TRACE mode, would cause the user interface to become sluggish or
+  even unresponsive on some devices. Fixed by posting UI updates less
+  aggressively.
+
+2018-01-07: release 2.0.10
+
+* Program Paste without line numbers didn't handle certain numbers,
+  specifically, those that started with a digit and didn't consist of only
+  digits. Fixed.
+
+2018-01-07: release 2.0.9
+
+* Program Paste no longer requires line numbers.
+* The CUSTOM command would toggle the CUSTOM menu, but that was wrong: it
+  should only activate that menu, never deactivate it. Fixed.
+* DIM?, EDIT, and EDITN didn't print X in TRACE mode. Fixed.
+* Selecting the already-active menu did not cause the display to be repainted,
+  even though it should: there might be a message, which should be removed in
+  that case. Fixed.
+* All versions except Mac Dashboard: made the print annunciator linger for one
+  second after printing stops. This makes it more noticeable, so printing is
+  less likely to go unnoticed on fast devices.
+* Mac application version (not Dashboard): implemented battery checker.
+* GTK version: added /sys/class/power_supply support in battery checker.
+
+2017-12-26: release 2.0.8
+
+* MENU (activating the programmable menu) while in ALPHA mode didn't turn off
+  the alpha_mode flag, leading to bad behavior or even crashes if any menu keys
+  were subsequently pressed.
+
+2017-12-21: release 2.0.7c (Windows only)
+
+* Decimal: SIN and COS of 45 degrees or 50 grads returned an inaccurate result,
+  correct to only 16 digits. Fixed.
+
+2017-12-18: release 2.0.7b (Android only)
+
+* The "Always Paint Entire Display" setting, introduced in the previous
+  version, didn't stick after app restart. Fixed.
+
+2017-12-17: release 2.0.7a (Android only)
+
+* Added "Always Paint Entire Display" option. This prevents display glitches
+  with certain combinations of devices and skins.
+
 2017-11-19: release 2.0.7
 
 * Changed the RAN and SEED functions to match the behavior of the real HP-42S.
@@ -13,8 +117,8 @@
 * Windows, Linux, and Mac versions: added keyboard mappings g => GTO and
   p => PI. On existing installations, users must delete or rename the existing
   keymap and restart for this to take effect.
-* iOS version: painting the display could be glitchy if either or both of its
-  coordinates were odd. Fixed by forcing them to be even.
+* iPhone version: painting the display could be glitchy if either or both of
+  its coordinates were odd. Fixed by forcing them to be even.
 
 2017-08-12: release 2.0.6
 

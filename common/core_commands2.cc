@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Free42 -- an HP-42S calculator simulator
- * Copyright (C) 2004-2017  Thomas Okken
+ * Copyright (C) 2004-2018  Thomas Okken
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -34,7 +34,7 @@
 /********************************************************/
 
 static const char *virtual_flags =
-    /* 00-49 */ "00000000000000000000000000010000000000000000011101"
+    /* 00-49 */ "00000000000000000000000000010000000000000000111111"
     /* 50-99 */ "00010000000000010000000001000000000000000000000000";
 
 int docmd_sf(arg_struct *arg) {
@@ -453,9 +453,11 @@ int view_helper(arg_struct *arg, int print) {
     flags.f.two_line_message = 0;
 
     if (print && (flags.f.printer_enable || !program_running())) {
-        if (flags.f.printer_exists)
+        if (flags.f.printer_exists) {
+	    shell_annunciators(-1, -1, 1, -1, -1, -1);
             print_wide(buf, part2, buf + part2, bufptr - part2);
-        else
+	    shell_annunciators(-1, -1, 0, -1, -1, -1);
+	} else
             return ERR_STOP;
     }
     return ERR_NONE;
@@ -1376,7 +1378,7 @@ int docmd_prx(arg_struct *arg) {
     else {
         char buf[100];
         int len;
-        shell_annunciators(-1, -1, 0, -1, -1, -1);
+        shell_annunciators(-1, -1, 1, -1, -1, -1);
         len = vartype2string(reg_x, buf, 100);
         if (reg_x->type == TYPE_REAL || reg_x->type == TYPE_STRING)
             print_right(buf, len, "***", 3);
@@ -1782,6 +1784,8 @@ int docmd_dim_t(arg_struct *arg) {
     reg_z = reg_y;
     reg_y = new_y;
     reg_x = new_x;
+    if (flags.f.trace_print && flags.f.printer_exists)
+        docmd_prx(NULL);
     return ERR_NONE;
 }
 
@@ -1873,7 +1877,7 @@ int docmd_asgn18(arg_struct *arg) {
 }
 
 int docmd_on(arg_struct *arg) {
-    flags.f.continuous_on = 1;
+    shell_always_on(1);
     return ERR_NONE;
 }
 

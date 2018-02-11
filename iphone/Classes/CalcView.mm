@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Free42 -- an HP-42S calculator simulator
- * Copyright (C) 2004-2017  Thomas Okken
+ * Copyright (C) 2004-2018  Thomas Okken
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -106,6 +106,8 @@ static int ann_run = 0;
 //static int ann_battery = 0;
 static int ann_g = 0;
 static int ann_rad = 0;
+static pthread_mutex_t ann_print_timeout_mutex = PTHREAD_MUTEX_INITIALIZER;
+static bool ann_print_timeout_active = false;
 
 static FILE *print_txt = NULL;
 static FILE *print_gif = NULL;
@@ -464,6 +466,8 @@ static CalcView *calcView = nil;
     keep_running = core_powercycle();
     if (keep_running)
         [self startRunner];
+    if (shell_always_on(-1))
+        [UIApplication sharedApplication].idleTimerDisabled = YES;
 }
 
 - (void) runner {
@@ -615,6 +619,33 @@ static CLLocationManager *locMgr = NULL;
     [locMgr startUpdatingHeading];
 }
 
+- (void) turn_off_print_ann {
+    pthread_mutex_lock(&ann_print_timeout_mutex);
+    ann_print = 0;
+    skin_update_annunciator(3, 0, calcView);
+    ann_print_timeout_active = FALSE;
+    pthread_mutex_unlock(&ann_print_timeout_mutex);
+}
+
+- (void) print_ann_helper:(NSNumber *)set {
+    int prt = [set intValue];
+    [set release];
+    pthread_mutex_lock(&ann_print_timeout_mutex);
+    if (ann_print_timeout_active) {
+        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(turn_off_print_ann) object:NULL];
+        ann_print_timeout_active = FALSE;
+    }
+    if (ann_print != prt) {
+        if (prt) {
+            ann_print = 1;
+            skin_update_annunciator(3, ann_print, calcView);
+        } else {
+            [self performSelector:@selector(turn_off_print_ann) withObject:NULL afterDelay:1];
+            ann_print_timeout_active = TRUE;
+        }
+    }
+    pthread_mutex_unlock(&ann_print_timeout_mutex);
+}
 
 @end
 
@@ -674,9 +705,11 @@ static void init_shell_state(int version) {
             state.skinName[0] = 0;
             /* fall through */
         case 0:
-            state.popupKeyboard = 0;
             /* fall through */
         case 1:
+            state.alwaysOn = 0;
+            /* fall through */
+        case 2:
             /* current version (SHELL_VERSION = 1),
              * so nothing to do here since everything
              * was initialized from the state file.
@@ -690,12 +723,15 @@ static void quit2(bool really_quit) {
 
     [PrintView dump];
     
-    if (print_txt != NULL)
+    if (print_txt != NULL) {
         fclose(print_txt);
+        print_txt = NULL;
+    }
     
     if (print_gif != NULL) {
         shell_finish_gif(gif_seeker, gif_writer);
         fclose(print_gif);
+        print_gif = NULL;
     }
     
     shell_spool_exit();
@@ -850,9 +886,9 @@ void shell_annunciators(int updn, int shf, int prt, int run, int g, int rad) {
         ann_shift = shf;
         skin_update_annunciator(2, ann_shift, calcView);
     }
-    if (prt != -1 && ann_print != prt) {
-        ann_print = prt;
-        skin_update_annunciator(3, ann_print, calcView);
+    if (prt != -1) {
+        NSNumber *n = [[NSNumber numberWithInt:prt] retain];
+        [calcView performSelectorOnMainThread:@selector(print_ann_helper:) withObject:n waitUntilDone:NO];
     }
     if (run != -1 && ann_run != run) {
         ann_run = run;
@@ -866,6 +902,15 @@ void shell_annunciators(int updn, int shf, int prt, int run, int g, int rad) {
         ann_rad = rad;
         skin_update_annunciator(7, ann_rad, calcView);
     }
+}
+
+int shell_always_on(int ao) {
+    int ret = state.alwaysOn;
+    if (ao != -1) {
+        state.alwaysOn = ao != 0;
+        [UIApplication sharedApplication].idleTimerDisabled = state.alwaysOn ? YES : NO;
+    }
+    return ret;
 }
 
 void shell_log(const char *message) {

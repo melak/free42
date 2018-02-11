@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Free42 -- an HP-42S calculator simulator
- * Copyright (C) 2004-2017  Thomas Okken
+ * Copyright (C) 2004-2018  Thomas Okken
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -961,7 +961,7 @@ static int prgmline2buf(char *buf, int len, int4 line, int highlight,
         string2buf(buf, len, &bufptr, "{ ", 2);
         bufptr += int2string(size, buf + bufptr, len - bufptr);
         string2buf(buf, len, &bufptr, "-Byte Prgm }", 12);
-    } else if (flags.f.alpha_mode && mode_alpha_entry && highlight) {
+    } else if (core_alpha_menu() && mode_alpha_entry && highlight) {
         int append = entered_string_length > 0 && entered_string[0] == 127;
         if (append) {
             string2buf(buf, len, &bufptr, "\177\"", 2);
@@ -1746,7 +1746,7 @@ static int procrustean_phloat2string(phloat d, char *buf, int buflen) {
 void show() {
     if (flags.f.prgm_mode)
         display_prgm_line(-1, 0);
-    else if (flags.f.alpha_mode) {
+    else if (core_alpha_menu()) {
         clear_display();
         if (reg_alpha_length <= 22)
             draw_string(0, 0, reg_alpha, reg_alpha_length);
@@ -2058,7 +2058,7 @@ void redisplay() {
             display_command(cmd_row);
     }
 
-    if (!flags.f.alpha_mode && !flags.f.prgm_mode) {
+    if (!core_alpha_menu() && !flags.f.prgm_mode) {
         if (avail_rows == 1) {
             if (!flags.f.message)
                 display_x(0);
@@ -2098,7 +2098,7 @@ void redisplay() {
                     display_prgm_line(1, 0);
             }
         }
-    } else if (flags.f.alpha_mode && avail_rows != 0 && !flags.f.message) {
+    } else if (core_alpha_menu() && avail_rows != 0 && !flags.f.message) {
         int avail = mode_alpha_entry ? 21 : 22;
         if (reg_alpha_length <= avail) {
             draw_string(0, 0, reg_alpha, reg_alpha_length);
@@ -2469,9 +2469,10 @@ void set_plainmenu(int menuid) {
     mode_alphamenu = MENU_NONE;
     mode_transientmenu = MENU_NONE;
 
-    if (menuid == mode_plainmenu)
+    if (menuid == mode_plainmenu) {
         mode_plainmenu_sticky = 1;
-    else if (menuid == MENU_CUSTOM1
+        redisplay();
+    } else if (menuid == MENU_CUSTOM1
             || menuid == MENU_CUSTOM2
             || menuid == MENU_CUSTOM3) {
         mode_plainmenu = menuid;

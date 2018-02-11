@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Free42 -- an HP-42S calculator simulator
- * Copyright (C) 2004-2017  Thomas Okken
+ * Copyright (C) 2004-2018  Thomas Okken
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -148,6 +148,7 @@ static int ann_run = 0;
 static int ann_battery = 0;
 static int ann_g = 0;
 static int ann_rad = 0;
+static UINT ann_print_timer = 0;
 
 
 // Foward declarations of functions included in this code module:
@@ -270,7 +271,7 @@ static void MyRegisterClass(HINSTANCE hInstance)
     wcex1.hbrBackground = (HBRUSH) (COLOR_WINDOW+1);
     wcex1.lpszMenuName  = (LPCSTR) IDC_FREE42;
     wcex1.lpszClassName = szMainWindowClass;
-    wcex1.hIconSm       = LoadIcon(wcex1.hInstance, (LPCTSTR) IDI_SMALL);
+    wcex1.hIconSm       = NULL;
 
     RegisterClassEx(&wcex1);
 
@@ -286,7 +287,7 @@ static void MyRegisterClass(HINSTANCE hInstance)
     wcex2.hbrBackground = (HBRUSH) (COLOR_WINDOW+1);
     wcex2.lpszMenuName  = NULL;
     wcex2.lpszClassName = szPrintOutWindowClass;
-    wcex2.hIconSm       = LoadIcon(wcex2.hInstance, (LPCTSTR) IDI_SMALL);
+    wcex2.hIconSm       = NULL;
 
     RegisterClassEx(&wcex2);
 }
@@ -1013,12 +1014,15 @@ static LRESULT CALLBACK ExportProgram(HWND hDlg, UINT message, WPARAM wParam, LP
     switch (message) {
         case WM_INITDIALOG: {
             HWND list = GetDlgItem(hDlg, IDC_LIST1);
-            char buf[10000];
-            int count = core_list_programs(buf, 10000);
-            char *p = buf;
-            for (int i = 0; i < count; i++) {
-                SendMessage(list, LB_ADDSTRING, 0, (long) p);
-                p += strlen(p) + 1;
+            char *buf = core_list_programs();
+            if (buf != NULL) {
+                int count = ((buf[0] & 255) << 24) | ((buf[1] & 255) << 16) | ((buf[2] & 255) << 8) | (buf[3] & 255);
+                char *p = buf + 4;
+                for (int i = 0; i < count; i++) {
+                    SendMessage(list, LB_ADDSTRING, 0, (long) p);
+                    p += strlen(p) + 1;
+                }
+                free(buf);
             }
             return TRUE;
         }
@@ -1776,6 +1780,17 @@ void shell_beeper(int frequency, int duration) {
     Beep(frequency, duration);
 }
 
+static VOID CALLBACK ann_print_timeout(HWND hwnd, UINT uMsg, UINT idEvent, DWORD dwTime) {
+	KillTimer(NULL, ann_print_timer);
+    ann_print_timer = 0;
+    ann_print = 0;
+    HDC hdc = GetDC(hMainWnd);
+    HDC memdc = CreateCompatibleDC(hdc);
+    skin_repaint_annunciator(hdc, memdc, 3, ann_print);
+    DeleteDC(memdc);
+    ReleaseDC(hMainWnd, hdc);
+}
+
 /* shell_annunciators()
  * Callback invoked by the emulator core to change the state of the display
  * annunciators (up/down, shift, print, run, battery, (g)rad).
@@ -1797,9 +1812,18 @@ void shell_annunciators(int updn, int shf, int prt, int run, int g, int rad) {
         ann_shift = shf;
         skin_repaint_annunciator(hdc, memdc, 2, ann_shift);
     }
-    if (prt != -1 && ann_print != prt) {
-        ann_print = prt;
-        skin_repaint_annunciator(hdc, memdc, 3, ann_print);
+    if (prt != -1) {
+        if (ann_print_timer != 0) {
+            KillTimer(NULL, ann_print_timer);
+            ann_print_timer = 0;
+        }
+        if (ann_print != prt)
+            if (prt) {
+                ann_print = 1;
+                skin_repaint_annunciator(hdc, memdc, 3, ann_print);
+            } else {
+                ann_print_timer = SetTimer(NULL, 0, 1000, ann_print_timeout);
+            }
     }
     if (run != -1 && ann_run != run) {
         ann_run = run;

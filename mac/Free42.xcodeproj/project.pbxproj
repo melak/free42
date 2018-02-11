@@ -61,6 +61,7 @@
 		E9B079390FF548770021B83D /* tone8.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9B0792F0FF548770021B83D /* tone8.wav */; };
 		E9B0793A0FF548770021B83D /* tone9.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9B079300FF548770021B83D /* tone9.wav */; };
 		E9B0795E0FF54A170021B83D /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9B0795D0FF54A170021B83D /* AudioToolbox.framework */; };
+		E9BA5705200189F400B490B0 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9BA5704200189F400B490B0 /* IOKit.framework */; };
 		E9E335DE0FF67A1D006A40AD /* keymap.txt in Resources */ = {isa = PBXBuildFile; fileRef = E9E335DD0FF67A1D006A40AD /* keymap.txt */; };
 /* End PBXBuildFile section */
 
@@ -156,6 +157,7 @@
 		E9B0795D0FF54A170021B83D /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		E9B649320FED513800EC9B91 /* CalcView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CalcView.h; path = Classes/CalcView.h; sourceTree = "<group>"; };
 		E9B9F6800FF6C1E60003CAF6 /* PrintView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PrintView.h; path = Classes/PrintView.h; sourceTree = "<group>"; };
+		E9BA5704200189F400B490B0 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		E9BB633B0FF418DD00E7EF10 /* ProgramListDataSource.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ProgramListDataSource.h; path = Classes/ProgramListDataSource.h; sourceTree = "<group>"; };
 		E9E335DD0FF67A1D006A40AD /* keymap.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = keymap.txt; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -165,6 +167,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E9BA5705200189F400B490B0 /* IOKit.framework in Frameworks */,
 				8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */,
 				E9B0795E0FF54A170021B83D /* AudioToolbox.framework in Frameworks */,
 				E9092A7818C2A52500609AB0 /* gcc111libbid.a in Frameworks */,
@@ -277,6 +280,7 @@
 		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				E9BA5704200189F400B490B0 /* IOKit.framework */,
 				1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */,
 				1058C7A2FEA54F0111CA2CBB /* Other Frameworks */,
 			);
@@ -435,7 +439,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ -f gcc111libbid.a ]; then exit 0; fi\ntar xvfz ../inteldecimal/IntelRDFPMathLib20U1.tar.gz\ncd IntelRDFPMathLib20U1\npatch -p0 <../intel-lib-mac-32bit.patch\ncd LIBRARY\nmake CC=gcc CALL_BY_REF=1 GLOBAL_RND=1 GLOBAL_FLAGS=1 UNCHANGED_BINARY_FLAGS=0\nmv libbid.a ../../gcc111libbid.a\ncd ../..\n( echo '#ifdef FREE42_FPTEST'; echo 'const char *readtest_lines[] = {'; tr -d '\\r' < IntelRDFPMathLib20U1/TESTS/readtest.in | sed 's/^\\(.*\\)$/\"\\1\",/'; echo '0 };'; echo '#endif' ) > readtest_lines.cc\n";
+			shellScript = "if [ -f gcc111libbid.a ]; then exit 0; fi\ntar xvfz ../inteldecimal/IntelRDFPMathLib20U1.tar.gz\ncd IntelRDFPMathLib20U1\npatch -p0 <../intel-lib-mac-64bit.patch\ncd LIBRARY\nmake CC=gcc CALL_BY_REF=1 GLOBAL_RND=1 GLOBAL_FLAGS=1 UNCHANGED_BINARY_FLAGS=0\nmv libbid.a ../../gcc111libbid.a\ncd ../..\n( echo '#ifdef FREE42_FPTEST'; echo 'const char *readtest_lines[] = {'; tr -d '\\r' < IntelRDFPMathLib20U1/TESTS/readtest.in | sed 's/^\\(.*\\)$/\"\\1\",/'; echo '0 };'; echo '#endif' ) > readtest_lines.cc\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -504,9 +508,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CODE_SIGN_IDENTITY = "Mac Developer";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEVELOPMENT_TEAM = F4D88K2P5W;
@@ -521,11 +524,12 @@
 					"$(inherited)",
 					"\"$(SRCROOT)\"",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				"OTHER_CFLAGS[arch=*]" = "-DFREE42_FPTEST";
 				PRODUCT_BUNDLE_IDENTIFIER = com.thomasokken.Free42;
 				PRODUCT_NAME = Free42;
 				PROVISIONING_PROFILE = "";
+				VALID_ARCHS = x86_64;
 			};
 			name = "Debug Binary";
 		};
@@ -533,9 +537,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CODE_SIGN_IDENTITY = "Mac Developer";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
 				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = F4D88K2P5W;
@@ -548,10 +551,11 @@
 					"$(inherited)",
 					"\"$(SRCROOT)\"",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.thomasokken.Free42;
 				PRODUCT_NAME = Free42;
 				PROVISIONING_PROFILE = "";
+				VALID_ARCHS = x86_64;
 			};
 			name = "Release Binary";
 		};
@@ -573,7 +577,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_MISSING_PARENTHESES = NO;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				"New Setting" = "";
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = "";
@@ -598,7 +602,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_MISSING_PARENTHESES = NO;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				"New Setting" = "";
 				SDKROOT = "";
 				VALID_ARCHS = i386;
@@ -624,7 +628,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_MISSING_PARENTHESES = NO;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				"New Setting" = "";
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = "";
@@ -636,9 +640,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CODE_SIGN_IDENTITY = "Mac Developer";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEVELOPMENT_TEAM = F4D88K2P5W;
@@ -653,11 +656,12 @@
 					"$(inherited)",
 					"\"$(SRCROOT)\"",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				"OTHER_CFLAGS[arch=*]" = "-DFREE42_FPTEST";
 				PRODUCT_BUNDLE_IDENTIFIER = com.thomasokken.Free42;
 				PRODUCT_NAME = Free42;
 				PROVISIONING_PROFILE = "";
+				VALID_ARCHS = x86_64;
 			};
 			name = "Debug Decimal";
 		};
@@ -679,7 +683,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_MISSING_PARENTHESES = NO;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				"New Setting" = "";
 				SDKROOT = "";
 				VALID_ARCHS = i386;
@@ -690,9 +694,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CODE_SIGN_IDENTITY = "Mac Developer";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
 				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = F4D88K2P5W;
@@ -705,10 +708,11 @@
 					"$(inherited)",
 					"\"$(SRCROOT)\"",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.thomasokken.Free42;
 				PRODUCT_NAME = Free42;
 				PROVISIONING_PROFILE = "";
+				VALID_ARCHS = x86_64;
 			};
 			name = "Release Decimal";
 		};

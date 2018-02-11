@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Free42 -- an HP-42S calculator simulator
- * Copyright (C) 2004-2017  Thomas Okken
+ * Copyright (C) 2004-2018  Thomas Okken
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -63,6 +63,7 @@ public class PreferencesDialog extends Dialog {
     private CheckBox singularMatrixCB;
     private CheckBox matrixOutOfRangeCB;
     private CheckBox autoRepeatCB;
+    private CheckBox alwaysOnCB;
     private CheckBox keyClicksCB;
     private CheckBox keyVibrationCB;
     private Spinner orientationSP;
@@ -83,6 +84,7 @@ public class PreferencesDialog extends Dialog {
         singularMatrixCB = (CheckBox) findViewById(R.id.singularMatrixCB);
         matrixOutOfRangeCB = (CheckBox) findViewById(R.id.matrixOutOfRangeCB);
         autoRepeatCB = (CheckBox) findViewById(R.id.autoRepeatCB);
+        alwaysOnCB = (CheckBox) findViewById(R.id.alwaysOnCB);
         keyClicksCB = (CheckBox) findViewById(R.id.keyClicksCB);
         keyVibrationCB = (CheckBox) findViewById(R.id.keyVibrationCB);
         orientationSP = (Spinner) findViewById(R.id.orientationSpinner);
@@ -189,6 +191,14 @@ public class PreferencesDialog extends Dialog {
     
     public boolean getAutoRepeat() {
         return autoRepeatCB.isChecked();
+    }
+    
+    public void setAlwaysOn(boolean b) {
+        alwaysOnCB.setChecked(b);
+    }
+    
+    public boolean getAlwaysOn() {
+        return alwaysOnCB.isChecked();
     }
     
     public void setKeyClicks(boolean b) {

@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Free42 -- an HP-42S calculator simulator
- * Copyright (C) 2004-2017  Thomas Okken
+ * Copyright (C) 2004-2018  Thomas Okken
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -17,7 +17,7 @@
 
 #import <UIKit/UIKit.h>
 
-#define SHELL_VERSION 1
+#define SHELL_VERSION 2
 #define FILENAMELEN 1024
 
 struct state_type {
@@ -27,7 +27,7 @@ struct state_type {
     char printerGifFileName[FILENAMELEN];
     int printerGifMaxLength;
     char skinName[FILENAMELEN];
-    int popupKeyboard;
+    int alwaysOn;
 };
 
 extern state_type state;

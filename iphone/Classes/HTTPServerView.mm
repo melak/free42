@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Free42 -- an HP-42S calculator simulator
- * Copyright (C) 2004-2017  Thomas Okken
+ * Copyright (C) 2004-2018  Thomas Okken
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -26,6 +26,7 @@
 #include <pthread.h>
 
 #import "HTTPServerView.h"
+#import "CalcView.h"
 #import "Free42AppDelegate.h"
 #import "RootViewController.h"
 
@@ -148,7 +149,8 @@ static void *getHostName(void *dummy) {
 }
 
 - (IBAction) done {
-    [UIApplication sharedApplication].idleTimerDisabled = NO;
+    if (!state.alwaysOn)
+        [UIApplication sharedApplication].idleTimerDisabled = NO;
     write(pype[1], "1\n", 2);
     [RootViewController showMain];
 }

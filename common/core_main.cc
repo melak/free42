@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Free42 -- an HP-42S calculator simulator
- * Copyright (C) 2004-2017  Thomas Okken
+ * Copyright (C) 2004-2018  Thomas Okken
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -97,7 +97,6 @@ void core_quit() {
     if (mode_interruptible != NULL)
         stop_interruptible();
     save_state();
-#endif
     free_vartype(reg_x);
     free_vartype(reg_y);
     free_vartype(reg_z);
@@ -108,10 +107,11 @@ void core_quit() {
     if (vars != NULL)
         free(vars);
     clean_vartype_pools();
-
-#ifdef ANDROID
-    reinitialize_globals();
 #endif
+//
+//#ifdef ANDROID
+//    reinitialize_globals();
+//#endif
 }
 
 void core_repaint_display() {
@@ -507,38 +507,6 @@ int core_keyup() {
     return (mode_running && !mode_getkey && !mode_pause) || keybuf_head != keybuf_tail;
 }
 
-int core_allows_powerdown(int *want_cpu) {
-    int allow = shell_low_battery() || !(mode_running || mode_getkey
-                    || flags.f.continuous_on || mode_interruptible != NULL);
-    *want_cpu = 0;
-    if (!allow && mode_getkey) {
-        /* We're being asked to power down but we're refusing.
-         * If this happens in the middle of a GETKEY, it should return 70,
-         * the code for OFF, but without stopping program execution.
-         */
-        vartype *seventy = new_real(70);
-        if (seventy != NULL) {
-            recall_result(seventy);
-            flags.f.stack_lift_disable = 0;
-            if (mode_running) {
-                shell_annunciators(-1, -1, -1, 1, -1, -1);
-                *want_cpu = 1;
-            } else
-                redisplay();
-        } else {
-            /* Memory allocation failure... The program will stop now,
-             * anyway, so we change our mind and allow the powerdown.
-             */
-            display_error(ERR_INSUFFICIENT_MEMORY, 1);
-            set_running(false);
-            redisplay();
-            allow = 1;
-        }
-        mode_getkey = 0;
-    }
-    return allow;
-}
-
 int core_powercycle() {
     bool need_redisplay = false;
 
@@ -549,7 +517,9 @@ int core_powercycle() {
 
     keybuf_tail = keybuf_head;
     set_shift(false);
-    flags.f.continuous_on = 0;
+    #if (!defined(ANDROID) && !defined(IPHONE))
+    shell_always_on(0);
+    #endif
     pending_command = CMD_NONE;
 
     if (mode_getkey) {
@@ -560,10 +530,6 @@ int core_powercycle() {
          * Since Free42 can be shut down in ways the HP-42S can't (exiting the
          * application, or turning off power on a Palm), I have to fake it a
          * bit; I put 70 in X as if the user had done OFF twice on a real 42S.
-         * Note that, as on a real 42S, we don't allow auto-powerdown while
-         * GETKEY is waiting; if an auto-powerdown request happens during
-         * GETKEY, it returns 70 but program execution is not stopped, and the
-         * power stays on (see core_allows_powerdown(), above).
          */
         vartype *seventy = new_real(70);
         if (seventy != NULL) {
@@ -618,9 +584,13 @@ int core_powercycle() {
     return mode_running;
 }
 
-int core_list_programs(char *buf, int bufsize) {
+char *core_list_programs() {
+    int bufsize = 1024;
+    char *buf = (char *) malloc(bufsize);
+    if (buf == NULL)
+        return NULL;
     int lastidx = -1;
-    int bufptr = 0;
+    int bufptr = 4;
     int label;
     int count = 0;
     for (label = 0; label < labels_count; label++) {
@@ -651,11 +621,16 @@ int core_list_programs(char *buf, int bufsize) {
         lastidx = labels[label].prgm;
 
         if (bufptr + namelen + 1 >= bufsize) {
-            if (bufptr > 0 && buf[bufptr - 1] != 0) {
-                buf[bufptr - 1] = 0;
-                count++;
+            bufsize += 1024;
+            char *newbuf = (char *) realloc(buf, bufsize);
+            if (newbuf == NULL) {
+                if (bufptr > 0 && buf[bufptr - 1] != 0) {
+                    buf[bufptr - 1] = 0;
+                    count++;
+                }
+                goto done;
             }
-            return count;
+            buf = newbuf;
         }
         for (i = 0; i < namelen; i++)
             buf[bufptr++] = name[i];
@@ -666,7 +641,12 @@ int core_list_programs(char *buf, int bufsize) {
             buf[bufptr++] = ' ';
         }
     }
-    return count;
+    done:
+    buf[0] = (char) (count >> 24);
+    buf[1] = (char) (count >> 16);
+    buf[2] = (char) (count >> 8);
+    buf[3] = (char) count;
+    return buf;
 }
 
 static int export_hp42s(int index, int (*progress_report)(const char *)) {
@@ -2008,8 +1988,7 @@ void core_import_programs(int (*progress_report)(const char *)) {
 }
 
 static int real2buf(char *buf, phloat x) {
-    int bufptr = phloat2string(x, buf, 49,
-            2, 0, 3, flags.f.thousands_separators, MAX_MANT_DIGITS);
+    int bufptr = phloat2string(x, buf, 49, 2, 0, 3, 0, MAX_MANT_DIGITS);
     /* Convert small-caps 'E' to regular 'e' */
     for (int i = 0; i < bufptr; i++)
         if (buf[i] == 24)
@@ -2028,16 +2007,14 @@ static int complex2buf(char *buf, phloat re, phloat im, bool always_rect) {
         x = re;
         y = im;
     }
-    int bufptr = phloat2string(x, buf, 99, 2, 0, 3,
-                flags.f.thousands_separators, MAX_MANT_DIGITS);
+    int bufptr = phloat2string(x, buf, 99, 2, 0, 3, 0, MAX_MANT_DIGITS);
     if (polar) {
         string2buf(buf, 99, &bufptr, " \342\210\240 ", 5);
     } else {
         if (y >= 0)
             buf[bufptr++] = '+';
     }
-    bufptr += phloat2string(y, buf + bufptr, 99 - bufptr, 2, 0, 3,
-                flags.f.thousands_separators, MAX_MANT_DIGITS);
+    bufptr += phloat2string(y, buf + bufptr, 99 - bufptr, 2, 0, 3, 0, MAX_MANT_DIGITS);
     if (!polar)
         buf[bufptr++] = 'i';
     /* Convert small-caps 'E' to regular 'e' */
@@ -2171,9 +2148,7 @@ static int scan_number(const char *buf, int len, int pos) {
         char c = buf[p];
         switch (state) {
             case 0:
-                if ((c >= '0' && c <= '9')
-                        || c == '+' || c == '-'
-                        || c == sep)
+                if ((c >= '0' && c <= '9') || c == '+' || c == '-')
                     state = 1;
                 else if (c == dec)
                     state = 2;
@@ -2183,7 +2158,7 @@ static int scan_number(const char *buf, int len, int pos) {
                     return p;
                 break;
             case 1:
-                if ((c >= '0' && c <= '9') || c == sep)
+                if ((c >= '0' && c <= '9') || c == sep || c == ' ')
                     /* state = 1 */;
                 else if (c == dec)
                     state = 2;
@@ -2206,6 +2181,7 @@ static int scan_number(const char *buf, int len, int pos) {
                     state = 4;
                 else
                     return p;
+                break;
             case 4:
                 if (c >= '0' && c <= '9')
                     /* state = 4 */;
@@ -2231,7 +2207,7 @@ static bool parse_phloat(const char *p, int len, phloat *res) {
         char c = p[j++];
         if (c == 0)
             break;
-        if (c == '+')
+        if (c == '+' || c == ' ')
             continue;
         else if (c == 'e' || c == 'E' || c == 24) {
             in_mant = false;
@@ -2614,8 +2590,7 @@ static int parse_scalar(const char *buf, int len, phloat *re, phloat *im, char *
     s2 = i;
     i = scan_number(buf, len, i);
     e2 = i;
-    if (i < len && (buf[i] == 'i' || buf[i] == 'I'
-                 || buf[i] == 'j' || buf[i] == 'J'))
+    if (i < len && (buf[i] == 'i' || buf[i] == 'j'))
         i++;
     else
         goto attempt_3;
@@ -2774,13 +2749,47 @@ static void paste_programs(const char *buf) {
         hppos = 0;
         while (hpbuf[hppos] == ' ')
             hppos++;
-        int prev_hppos;
+        int prev_hppos, lineno_start, lineno_end;
         prev_hppos = hppos;
+        lineno_start = -1;
         while (hppos < hpend && (c = hpbuf[hppos], c >= '0' && c <= '9'))
             hppos++;
-        if (prev_hppos == hppos)
-            // No line number? Not acceptable.
-            goto line_done;
+        if (prev_hppos != hppos) {
+            // Number found. If this is immediately followed by a period,
+            // comma, or E, it's not a line number but an unnumbered number
+            // line.
+            if (hppos < hpend && (c = hpbuf[hppos], c == '.' || c == ','
+                            || c == 'E' || c == 'e' || c == 24)) {
+                char numbuf[50];
+                int len = hpend - prev_hppos;
+                if (len > 50)
+                    len = 50;
+                int i;
+                for (i = 0; i < len; i++) {
+                    c = hpbuf[prev_hppos + i];
+                    if (c == ' ')
+                        break;
+                    if (c == 'e' || c == 24)
+                        c = 'E';
+                    else if (c == ',')
+                        c = '.';
+                    numbuf[i] = c;
+                }
+                if (i == 50)
+                    // Too long
+                    goto line_done;
+                numbuf[i] = 0;
+                cmd = CMD_NUMBER;
+                arg.val_d = parse_number_line(numbuf);
+                arg.type = ARGTYPE_DOUBLE;
+                goto store;
+            } else {
+                // No decimal or exponent following the digits;
+                // for now, assume it's a line number.
+                lineno_start = prev_hppos;
+                lineno_end = hppos;
+            }
+        }
         // Line number should be followed by a run of one or more characters,
         // which may be spaces, greater-than signs, or solid right-pointing
         // triangle (a.k.a. goose), but all but one of those characters must
@@ -2799,13 +2808,28 @@ static void paste_programs(const char *buf) {
                 break;
             hppos++;
         }
-        if (hppos == prev_hppos)
-            // No space following line number? Not acceptable.
-            goto line_done;
         // Now hppos should be pointing at the first character of the
         // command.
-        if (hppos == hpend)
-            // Nothing after the line number
+        if (hppos == hpend) {
+            if (lineno_start == -1) {
+                // empty line
+                goto line_done;
+            } else {
+                // Nothing after the line number; treat this as a
+                // number without a line number
+                // Note that we could treat many more cases as unnumbered
+                // numbers; basically, any number followed by something that
+                // doesn't parse... but I'm not opening that can of worms until
+                // I see a good reason to.
+                hpbuf[lineno_end] = 0;
+                cmd = CMD_NUMBER;
+                arg.val_d = parse_number_line(hpbuf + lineno_start);
+                arg.type = ARGTYPE_DOUBLE;
+                goto store;
+            }
+        }
+        if (lineno_start != -1 && hppos == prev_hppos)
+            // No space following line number? Not acceptable.
             goto line_done;
         if (hppos < hpend - 1 && hpbuf[hppos] == 127 && hpbuf[hppos + 1] == '"') {
             // Appended string
@@ -2852,12 +2876,11 @@ static void paste_programs(const char *buf) {
             if (cmd == CMD_SIZE) {
                 if (!nexttoken(hpbuf, cmd_end, hpend, &tok_start, &tok_end))
                     goto line_done;
-                int len = tok_end - tok_start;
-                if (len > 4)
+                if (tok_end - tok_start > 4)
                     goto line_done;
                 int sz = 0;
-                while (len > 0) {
-                    char c = hpbuf[tok_start + (--len)];
+                for (int i = tok_start; i < tok_end; i++) {
+                    char c = hpbuf[i];
                     if (c < '0' || c > '9')
                         goto line_done;
                     sz = sz * 10 + c - '0';
@@ -3221,8 +3244,11 @@ void core_paste(const char *buf) {
             int len = strlen(buf);
             char *asciibuf = (char *) malloc(len + 1);
             strcpy(asciibuf, buf);
-            if (asciibuf[len - 1] == '\n')
+            if (len > 0 && asciibuf[len - 1] == '\n') {
                 asciibuf[--len] = 0;
+                if (len > 0 && asciibuf[len - 1] == '\r')
+                    asciibuf[--len] = 0;
+            }
             char *hpbuf = (char *) malloc(len + 4);
             len = ascii2hp(hpbuf, asciibuf, len);
             free(asciibuf);

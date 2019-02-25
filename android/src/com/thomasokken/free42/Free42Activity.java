@@ -102,6 +102,8 @@ public class Free42Activity extends Activity {
     
     public static Free42Activity instance;
     
+    public static final String MY_STORAGE_DIR = "/sdcard/Android/data/com.thomasokken.free42";
+    
     static {
         System.loadLibrary("free42");
     }
@@ -470,7 +472,7 @@ public class Free42Activity extends Activity {
             } else if (index == builtinSkinNames.length) {
                 if (!checkStorageAccess())
                     return;
-                FileSelectionDialog fsd = new FileSelectionDialog(this, new String[] { "layout", "*" });
+                FileSelectionDialog fsd = new FileSelectionDialog(this, new String[] { "layout", "*" }, false);
                 if (externalSkinName[orientation].length() == 0)
                     fsd.setPath(topStorageDir() + "/Free42");
                 else
@@ -510,7 +512,7 @@ public class Free42Activity extends Activity {
     private void doImport() {
         if (!checkStorageAccess())
             return;
-        FileSelectionDialog fsd = new FileSelectionDialog(this, new String[] { "raw", "*" });
+        FileSelectionDialog fsd = new FileSelectionDialog(this, new String[] { "raw", "*" }, false);
         fsd.setPath(topStorageDir());
         fsd.setOkListener(new FileSelectionDialog.OkListener() {
             public void okPressed(String path) {
@@ -591,7 +593,7 @@ public class Free42Activity extends Activity {
                     break;
                 }
             if (!none) {
-                FileSelectionDialog fsd = new FileSelectionDialog(this, new String[] { "raw", "*" });
+                FileSelectionDialog fsd = new FileSelectionDialog(this, new String[] { "raw", "*" }, true);
                 fsd.setPath(topStorageDir());
                 fsd.setOkListener(new FileSelectionDialog.OkListener() {
                     public void okPressed(String path) {
@@ -948,7 +950,11 @@ public class Free42Activity extends Activity {
     private class PrintView extends View {
         
         private static final int BYTESPERLINE = 18;
-        private static final int LINES = 16384;
+        // Certain devices have trouble with LINES = 16384; the print-out view collapses.
+        // No idea how to detect this behavior, so unclear how to work around it.
+        // Playing safe by making the print-out buffer smaller.
+        // private static final int LINES = 16384;
+        private static final int LINES = 8192;
         
         private byte[] buffer = new byte[LINES * BYTESPERLINE];
         private int top, bottom;
@@ -964,6 +970,13 @@ public class Free42Activity extends Activity {
                 if (printInputStream.read(intBuf) != 4)
                     throw new IOException();
                 int len = (intBuf[0] << 24) | ((intBuf[1] & 255) << 16) | ((intBuf[2] & 255) << 8) | (intBuf[3] & 255);
+                if (len > buffer.length) {
+                    int skip = len - buffer.length;
+                    if (skip % BYTESPERLINE != 0)
+                        skip = ((skip / BYTESPERLINE) + 1) * BYTESPERLINE;
+                    printInputStream.skip(skip);
+                    len -= skip;
+                }
                 int n = printInputStream.read(buffer, 0, len);
                 if (n != len)
                     throw new IOException();
@@ -2036,8 +2049,11 @@ public class Free42Activity extends Activity {
     }
     
     private boolean checkStorageAccess2() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+            if (android.os.Build.VERSION.SDK_INT >= 19 /* KitKat; 4.4 */)
+                new File(MY_STORAGE_DIR).mkdirs();
             return true;
+        }
         ActivityCompat.requestPermissions(this, new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE }, MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
         return false;
     }

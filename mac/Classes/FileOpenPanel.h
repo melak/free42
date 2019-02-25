@@ -15,45 +15,18 @@
  * along with this program; if not, see http://www.gnu.org/licenses/.
  *****************************************************************************/
 
-#import "AboutView.h"
-#import "Free42AppDelegate.h"
-#import "RootViewController.h"
+#import <Cocoa/Cocoa.h>
 
 
-@implementation AboutView
-
-@synthesize doneButton;
-@synthesize versionLabel;
-@synthesize copyrightLabel;
-
-- (id)initWithFrame:(CGRect)frame {
-    if (self = [super initWithFrame:frame]) {
-        // Initialization code
-    }
-    return self;
+@interface FileOpenPanel : NSObject {
+    NSOpenPanel *panel;
+    NSArray *suffixes;
+    int selectedSuffix;
 }
 
-- (void) awakeFromNib {
-    [super awakeFromNib];
-    [versionLabel setText:[NSString stringWithFormat:@"Free42 %s", [Free42AppDelegate getVersion]]];
-    [copyrightLabel setText:@"© 2004-2019 Thomas Okken"];
-}
-
-- (void)drawRect:(CGRect)rect {
-    // Drawing code
-}
-
-- (void) raised {
-    // start-up code
-}
-
-- (IBAction) done {
-    [RootViewController showMain];
-}
-
-- (void)dealloc {
-    [super dealloc];
-}
-
++ (FileOpenPanel *) panelWithTitle:(NSString *)title types:(NSString *)types;
+- (FileOpenPanel *) initWithTitle:(NSString *)title types:(NSString *)types;
+- (NSModalResponse) runModal;
+- (NSArray *) paths;
 
 @end

@@ -14,6 +14,7 @@ import android.database.DataSetObserver;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.Adapter;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -28,6 +29,7 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.AdapterView.OnItemSelectedListener;
 
 public class FileSelectionDialog extends Dialog {
+    private Button homeButton;
     private Spinner dirListSpinner;
     private ListView dirView;
     private Spinner fileTypeSpinner;
@@ -38,13 +40,19 @@ public class FileSelectionDialog extends Dialog {
     private Button cancelButton;
     private OkListener okListener;
     private String currentPath;
-    private boolean isSaveDialog;
     
-    public FileSelectionDialog(Context ctx, String[] types, boolean save) {
+    public FileSelectionDialog(Context ctx, String[] types) {
         super(ctx);
-        isSaveDialog = save;
         boolean landscape = ctx.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
         setContentView(landscape ? R.layout.file_selection_dialog_landscape : R.layout.file_selection_dialog_portrait);
+        getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT);
+        homeButton = (Button) findViewById(R.id.homeButton);
+        homeButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                doHome();
+            }
+        });
         dirListSpinner = (Spinner) findViewById(R.id.dirListSpinner);
         dirListSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
             public void onItemSelected(AdapterView<?> view, View parent, int position, long id) {
@@ -56,7 +64,7 @@ public class FileSelectionDialog extends Dialog {
                     pathBuf.append(a.getItem(i));
                     pathBuf.append("/");
                 }
-                setPath(pathBuf.toString(), isSaveDialog);
+                setPath(pathBuf.toString());
             }
             public void onNothingSelected(AdapterView<?> arg0) {
                 // Shouldn't happen
@@ -120,13 +128,13 @@ public class FileSelectionDialog extends Dialog {
             public void onItemClick(AdapterView<?> view, View parent, int position, long id) {
                 File item = (File) view.getAdapter().getItem(position);
                 if (item.isDirectory())
-                    setPath(item.getAbsolutePath(), isSaveDialog);
+                    setPath(item.getAbsolutePath());
                 else
                     fileNameTF.setText(item.getName());
             }
         });
         setTitle("Select File");
-        setPath("/", true);
+        doHome();
     }
     
     public interface OkListener {
@@ -138,20 +146,6 @@ public class FileSelectionDialog extends Dialog {
     }
     
     public void setPath(String path) {
-        setPath(path, isSaveDialog);
-    }
-    
-    private void setPath(String path, boolean restrict) {
-        if (restrict && android.os.Build.VERSION.SDK_INT >= 19 /* KitKat; 4.4 */) {
-            String homePath;
-            try {
-                homePath = new File(Free42Activity.MY_STORAGE_DIR).getCanonicalPath();
-            } catch (IOException e) {
-                homePath = Free42Activity.MY_STORAGE_DIR;
-            }
-            if (!path.startsWith(homePath + "/"))
-                path = homePath;
-        }
         String fileName = "";
         File f = new File(path);
         if (!f.exists() || f.isFile()) {
@@ -193,10 +187,20 @@ public class FileSelectionDialog extends Dialog {
         dirView.setAdapter(new DirListAdapter(list, type));
     }
 
+    private void doHome() {
+        String homePath;
+        try {
+            homePath = new File(Free42Activity.MY_STORAGE_DIR).getCanonicalPath();
+        } catch (IOException e) {
+            homePath = Free42Activity.MY_STORAGE_DIR;
+        }
+        setPath(homePath);
+    }
+    
     private void doUp() {
         if (currentPath.length() > 1) {
             int n = currentPath.lastIndexOf("/", currentPath.length() - 2);
-            setPath(currentPath.substring(0, n + 1) + fileNameTF.getText().toString(), isSaveDialog);
+            setPath(currentPath.substring(0, n + 1) + fileNameTF.getText().toString());
         }
     }
     
@@ -206,7 +210,7 @@ public class FileSelectionDialog extends Dialog {
             File newDir = new File(currentPath + dirName);
             newDir.mkdir();
             if (newDir.isDirectory())
-                setPath(newDir.getAbsolutePath(), isSaveDialog);
+                setPath(newDir.getAbsolutePath());
         }
     }
     

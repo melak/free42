@@ -61,26 +61,74 @@ static RootViewController *instance;
             NSLog(@"error loading sound: %@", name);
     }
     
-    int sbh = [UIApplication sharedApplication].statusBarFrame.size.height;
-    CGRect bounds = CGRectMake(window.bounds.origin.x, window.bounds.origin.y + sbh,
-                               window.bounds.size.width, window.bounds.size.height - sbh);
-    printView.frame = bounds;
-    [window addSubview:printView];
-    httpServerView.frame = bounds;
-    [window addSubview:httpServerView];
-    selectSkinView.frame = bounds;
-    [window addSubview:selectSkinView];
-    selectProgramsView.frame = bounds;
-    [window addSubview:selectProgramsView];
-    preferencesView.frame = bounds;
-    [window addSubview:preferencesView];
-    aboutView.frame = bounds;
-    [window addSubview:aboutView];
-    selectFileView.frame = bounds;
-    [window addSubview:selectFileView];
-    calcView.frame = bounds;
-    [window addSubview:calcView];
+    [self.view addSubview:printView];
+    [self.view addSubview:httpServerView];
+    [self.view addSubview:selectSkinView];
+    [self.view addSubview:selectProgramsView];
+    [self.view addSubview:preferencesView];
+    [self.view addSubview:aboutView];
+    [self.view addSubview:selectFileView];
+    [self.view addSubview:calcView];
+    [self layoutSubViews];
+    
+    // Make the strip above the content area black. On iPhone
+    // and iPod touch, this turns the status bar black; on iPad,
+    // the strip above the content area is not the status bar,
+    // but you still want it to be black. The difference is
+    // relevant; see the preferredStatusBarStyle method, below.
+    [self.view setBackgroundColor:UIColor.blackColor];
+    
     [window makeKeyAndVisible];
+    window.rootViewController = self;
+}
+
+- (UIStatusBarStyle) preferredStatusBarStyle {
+    // On iPhone and iPod touch, use LightContent, to get light
+    // text that is readable on the black status bar. On iPad,
+    // leave the default alone, because we're not actually
+    // changing the status bar color there, so we shouldn't be
+    // messing with the status bar text either.
+    NSString *model = [UIDevice currentDevice].model;
+    if ([model hasPrefix:@"iPad"])
+        return [super preferredStatusBarStyle];
+    else
+        return UIStatusBarStyleLightContent;
+}
+
+- (UIInterfaceOrientationMask) supportedInterfaceOrientations {
+    if (state.orientationMode == 0)
+        return UIInterfaceOrientationMaskAll;
+    else if (state.orientationMode == 1)
+        return UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskPortraitUpsideDown;
+    else // state.orientationMode == 2
+        return UIInterfaceOrientationMaskLandscape;
+}
+
+- (void) layoutSubViews {
+    CGRect r;
+    if ([UIApplication sharedApplication].isStatusBarHidden)
+        r = self.view.bounds;
+    else {
+        int sbh1 = [UIApplication sharedApplication].statusBarFrame.size.height;
+        int sbh2 = window.bounds.size.height - self.view.bounds.size.height;
+        int sbh = sbh1 - sbh2;
+        r = CGRectMake(self.view.bounds.origin.x, self.view.bounds.origin.y + sbh, self.view.bounds.size.width, self.view.bounds.size.height - sbh);
+    }
+    if (@available(iOS 11.0, *)) {
+        if (window.bounds.size.width > window.bounds.size.height) {
+            UIEdgeInsets ei = window.safeAreaInsets;
+            r.origin.x += ei.left;
+            r.size.width -= ei.right + ei.left;
+        }
+    }
+    printView.frame = r;
+    httpServerView.frame = r;
+    selectSkinView.frame = r;
+    selectProgramsView.frame = r;
+    preferencesView.frame = r;
+    aboutView.frame = r;
+    selectFileView.frame = r;
+    calcView.frame = r;
 }
 
 - (void) enterBackground {
@@ -129,7 +177,7 @@ int shell_low_battery() {
 }
 
 - (void) showMain2 {
-    [window bringSubviewToFront:calcView];
+    [self.view bringSubviewToFront:calcView];
 }
 
 + (void) showMain {
@@ -137,7 +185,7 @@ int shell_low_battery() {
 }
 
 - (void) showPrintOut2 {
-    [window bringSubviewToFront:printView];
+    [self.view bringSubviewToFront:printView];
 }
 
 + (void) showPrintOut {
@@ -146,7 +194,7 @@ int shell_low_battery() {
 
 - (void) showHttpServer2 {
     [httpServerView raised];
-    [window bringSubviewToFront:httpServerView];
+    [self.view bringSubviewToFront:httpServerView];
 }
 
 + (void) showHttpServer {
@@ -155,7 +203,7 @@ int shell_low_battery() {
 
 - (void) showSelectSkin2 {
     [selectSkinView raised];
-    [window bringSubviewToFront:selectSkinView];
+    [self.view bringSubviewToFront:selectSkinView];
 }
 
 + (void) showSelectSkin {
@@ -164,7 +212,7 @@ int shell_low_battery() {
 
 - (void) showPreferences2 {
     [preferencesView raised];
-    [window bringSubviewToFront:preferencesView];
+    [self.view bringSubviewToFront:preferencesView];
 }
 
 + (void) showPreferences {
@@ -173,7 +221,7 @@ int shell_low_battery() {
 
 - (void) showAbout2 {
     [aboutView raised];
-    [window bringSubviewToFront:aboutView];
+    [self.view bringSubviewToFront:aboutView];
 }
 
 + (void) showAbout {
@@ -182,7 +230,7 @@ int shell_low_battery() {
 
 - (void) showSelectFile2 {
     [selectFileView raised];
-    [window bringSubviewToFront:selectFileView];
+    [self.view bringSubviewToFront:selectFileView];
 }
 
 + (void) showSelectFile {
@@ -224,7 +272,7 @@ static int my_shell_read(char *buf, int buflen) {
 
 + (void) doExport {
     [instance.selectProgramsView raised];
-    [instance.window bringSubviewToFront:instance.selectProgramsView];
+    [instance.self.view bringSubviewToFront:instance.selectProgramsView];
 }
 
 @end

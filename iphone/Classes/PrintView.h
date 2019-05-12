@@ -24,8 +24,8 @@ struct update_params {
     int height;
 };
 
-#define PRINT_LINES 9000
-#define PRINT_BYTESPERLINE 36
+#define PRINT_LINES 18000
+#define PRINT_BYTESPERLINE 18
 #define PRINT_SIZE 324000
 
 extern unsigned char *print_bitmap;
@@ -49,6 +49,7 @@ extern int printout_bottom;
 @property (nonatomic, retain) IBOutlet PrintTileView *tile2;
 
 + (PrintView *) instance;
++ (CGFloat) scale;
 - (void) awakeFromNib;
 - (IBAction) clear;
 - (IBAction) done;

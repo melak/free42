@@ -262,9 +262,7 @@ public class Free42Activity extends Activity {
     }
     
     @Override
-    protected void onResume() {
-        super.onResume();
-        
+    protected void onStart() {
         // Check battery level -- this is necessary because the ACTTON_BATTERY_LOW
         // and ACTION_BATTERY_OKAY intents are not "sticky", i.e., we get those
         // notifications only when that status *changes*; we don't get any indication
@@ -283,6 +281,8 @@ public class Free42Activity extends Activity {
 
         if (core_powercycle())
             start_core_keydown();
+        
+        super.onStart();
     }
     
     @Override
@@ -297,7 +297,7 @@ public class Free42Activity extends Activity {
     }
 
     @Override
-    protected void onPause() {
+    protected void onStop() {
         end_core_keydown();
         // Write state file
         File filesDir = getFilesDir();
@@ -344,15 +344,20 @@ public class Free42Activity extends Activity {
             } catch (IOException e) {}
             printGifFile = null;
         }
-        super.onPause();
+        super.onStop();
     }
     
     @Override
     protected void onDestroy() {
         // N.B. In the Android build, core_quit() does not write the
-        // core state; we assume that onPause() has been called previously,
+        // core state; we assume that onStop() has been called previously,
         // and its core_enter_background() call takes care of saving state.
         // All this core_quit() call does it free up memory.
+        // TODO -- In Android builds, core_quit() currently doesn't even
+        // free up memory. If we ever do want that to happen, i.e. in order
+        // to debug memory leaks in the native code, this should be handled
+        // by breaking the memory deallocation code into a separate function.
+        // The whole life-cycle thing, as it is right now, is too confusing.
         core_quit();
         if (lowBatteryReceiver != null) {
             unregisterReceiver(lowBatteryReceiver);
@@ -363,12 +368,26 @@ public class Free42Activity extends Activity {
     
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (printViewShowing && keyCode == KeyEvent.KEYCODE_BACK) {
-            doFlipCalcPrintout();
+        if (keyCode == KeyEvent.KEYCODE_BACK
+                && event.getRepeatCount() == 0) {
+            event.startTracking();
             return true;
-        } else {
-            return super.onKeyDown(keyCode, event);
         }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && event.isTracking()
+                && !event.isCanceled()) {
+            if (printViewShowing) {
+                doFlipCalcPrintout();
+                return true;
+            } else {
+                return super.onKeyUp(keyCode, event);
+            }
+        }
+        return super.onKeyUp(keyCode, event);
     }
     
     @Override
@@ -795,7 +814,7 @@ public class Free42Activity extends Activity {
 
                 TextView label3 = new TextView(context);
                 label3.setId(4);
-                SpannableString s = new SpannableString("http://thomasokken.com/free42/");
+                SpannableString s = new SpannableString("https://thomasokken.com/free42/");
                 Linkify.addLinks(s, Linkify.WEB_URLS);
                 label3.setText(s);
                 label3.setMovementMethod(LinkMovementMethod.getInstance());
@@ -806,7 +825,7 @@ public class Free42Activity extends Activity {
 
                 TextView label4 = new TextView(context);
                 label4.setId(5);
-                s = new SpannableString("http://thomasokken.com/free42/42s.pdf");
+                s = new SpannableString("https://thomasokken.com/free42/42s.pdf");
                 Linkify.addLinks(s, Linkify.WEB_URLS);
                 label4.setText(s);
                 label4.setMovementMethod(LinkMovementMethod.getInstance());
@@ -996,7 +1015,8 @@ public class Free42Activity extends Activity {
         private byte[] buffer = new byte[LINES * BYTESPERLINE];
         private int top, bottom;
         private int printHeight;
-        private int scale;
+        private int screenWidth;
+        private float scale;
 
         public PrintView(Context context) {
             super(context);
@@ -1027,10 +1047,8 @@ public class Free42Activity extends Activity {
             }
 
             printHeight = bottom / BYTESPERLINE;
-            int screenWidth = getWindowManager().getDefaultDisplay().getWidth();
-            scale = screenWidth / 143;
-            if (scale == 0)
-                scale = 1;
+            screenWidth = getWindowManager().getDefaultDisplay().getWidth();
+            scale = screenWidth / 179f;
         }
 
         @Override
@@ -1038,12 +1056,14 @@ public class Free42Activity extends Activity {
             // Pretending our height is never zero, to keep the HTC Aria
             // from throwing a fit. See also the printHeight == 0 case in
             // onDraw().
-            setMeasuredDimension(143 * scale, Math.max(printHeight, 1) * scale);
+            setMeasuredDimension(screenWidth, Math.max((int) (printHeight * scale), 1));
         }
 
         @SuppressLint("DrawAllocation")
         @Override
         protected void onDraw(Canvas canvas) {
+            canvas.save();
+            canvas.scale(scale, scale);
             Rect clip = canvas.getClipBounds();
             
             if (printHeight == 0) {
@@ -1057,21 +1077,15 @@ public class Free42Activity extends Activity {
                 p.setColor(PRINT_BACKGROUND_COLOR);
                 p.setStyle(Paint.Style.FILL);
                 canvas.drawRect(clip, p);
+                canvas.restore();
                 return;
             }
             
-            // Extend the clip rectangle so that it doesn't include any
-            // fractional pixels
-            clip.left = clip.left / scale * scale;
-            clip.top = clip.top / scale * scale;
-            clip.right = (clip.right + scale - 1) / scale * scale;
-            clip.bottom = (clip.bottom + scale - 1) / scale * scale;
-            
             // Construct a temporary bitmap
-            int src_x = clip.left / scale;
-            int src_y = clip.top / scale;
-            int src_width = (clip.right - clip.left) / scale;
-            int src_height = (clip.bottom - clip.top) / scale;
+            int src_x = clip.left;
+            int src_y = clip.top;
+            int src_width = clip.right - clip.left;
+            int src_height = clip.bottom - clip.top;
             Bitmap tmpBitmap = Bitmap.createBitmap(src_width, src_height, Bitmap.Config.ARGB_8888);
             IntBuffer tmpBuffer = IntBuffer.allocate(src_width * src_height);
             int[] tmpArray = tmpBuffer.array();
@@ -1080,13 +1094,17 @@ public class Free42Activity extends Activity {
                 if (yy >= LINES)
                     yy -= LINES;
                 for (int x = 0; x < src_width; x++) {
-                    int xx = x + src_x;
-                    boolean set = (buffer[yy * BYTESPERLINE + (xx >> 3)] & (1 << (xx & 7))) != 0;
-                    tmpArray[y * src_width + x] = set ? Color.BLACK : Color.WHITE;
+                    int xx = x + src_x - 18;
+                    if (xx >= 0 && xx < 143) {
+                        boolean set = (buffer[yy * BYTESPERLINE + (xx >> 3)] & (1 << (xx & 7))) != 0;
+                        tmpArray[y * src_width + x] = set ? Color.BLACK : Color.WHITE;
+                    } else
+                        tmpArray[y * src_width + x] = Color.WHITE;
                 }
             }
             tmpBitmap.copyPixelsFromBuffer(tmpBuffer);
             canvas.drawBitmap(tmpBitmap, new Rect(0, 0, src_width, src_height), clip, new Paint());
+            canvas.restore();
         }
         
         @SuppressLint("ClickableViewAccessibility")
@@ -1809,7 +1827,10 @@ public class Free42Activity extends Activity {
                         printTxtStream = new FileOutputStream(ShellSpool.printToTxtFileName);
                         printTxtStream.write(new byte[] { (byte) 0xEF, (byte) 0xBB, (byte) 0xBF });
                     }
-                ShellSpool.shell_spool_txt(text, printTxtStream);
+                if (text != null)
+                    ShellSpool.shell_spool_txt(text, printTxtStream);
+                else
+                    ShellSpool.shell_spool_bitmap_to_txt(bits, bytesperline, x, y, width, height, printTxtStream);
             } catch (IOException e) {
                 if (printTxtStream != null) {
                     try {

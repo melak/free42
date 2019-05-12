@@ -265,7 +265,7 @@ static void low_battery_checker(CFRunLoopTimerRef timer, void *info) {
         [mainWindow setFrameOrigin:pt];
     }
     
-    sz.width = 301;
+    sz.width = 373;
     sz.height = state.printWindowKnown ? state.printWindowHeight : 600;
     [printWindow setContentSize:sz];
     [printView initialUpdate];
@@ -464,7 +464,7 @@ static void low_battery_checker(CFRunLoopTimerRef timer, void *info) {
 - (IBAction) clearPrintOut:(id)sender {
     printout_top = printout_bottom = 0;
     NSSize s;
-    s.width = 286;
+    s.width = 358;
     s.height = 0;
     [printView setFrameSize:s];
 }
@@ -903,7 +903,7 @@ void calc_keydown(NSString *characters, NSUInteger flags, unsigned short keycode
                     key_macro = entry->macro;
                     break;
                 } else {
-                    if (key_macro == NULL)
+                    if (cshift && key_macro == NULL)
                         key_macro = entry->macro;
                 }
             }
@@ -1182,7 +1182,10 @@ void shell_print(const char *text, int length,
                 fwrite("\357\273\277", 1, 3, print_txt);
         }
         
-        shell_spool_txt(text, length, txt_writer, txt_newliner);
+        if (text != NULL)
+            shell_spool_txt(text, length, txt_writer, txt_newliner);
+        else
+            shell_spool_bitmap_to_txt(bits, bytesperline, x, y, width, height, txt_writer, txt_newliner);
     done_print_txt:;
     }
     

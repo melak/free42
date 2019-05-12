@@ -469,7 +469,7 @@ static void shell_keydown() {
 				repeat = 0;
 			}
 		}
-    } else
+	} else
         running = core_keydown(ckey, &enqueued, &repeat);
     if (!running) {
         if (repeat != 0)
@@ -506,9 +506,15 @@ static void shell_keyup() {
 //
 //
 static LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-    //static FILE *logfile = fopen("C:\\Windows\\Desktop\\log.txt", "w");
-    //fprintf(logfile, "message=%s wParam=0x%x lParam=0x%lx\n", msg2string(message), wParam, lParam);
-    //fflush(logfile);
+#if 0
+    static FILE *log = fopen("C:/Users/thomas/Desktop/log.txt", "w");
+	if (message == WM_CHAR || message == WM_SYSCHAR
+			|| message == WM_KEYDOWN || message == WM_SYSKEYDOWN
+			|| message == WM_KEYUP || message == WM_SYSKEYUP) {
+		fprintf(log, "message=%s wParam=0x%x lParam=0x%lx\n", msg2string(message), wParam, lParam);
+		fflush(log);
+	}
+#endif
 
     switch (message) {
         case WM_COMMAND: {
@@ -643,18 +649,17 @@ static LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPAR
                 just_pressed_shift = true;
                 goto do_default;
             }
-            if ((message == WM_KEYDOWN || message == WM_SYSKEYDOWN)
-                    && !ctrl_down
-                    && (virtKey == 8 // Backspace
-                    || virtKey == 9 // Tab
-                    || virtKey == 13 // Enter
-                    || (virtKey == 27 && !shift_down) // Escape
-                    || virtKey == 32 // Space
-                    || (virtKey >= 48 && virtKey < 112)
-                    || (virtKey >= 0xB0 && virtKey < 0xF0)))
-                // Keystrokes that will be followed by a WM_CHAR
-                // message; we defer handling them until then.
-                break;
+
+			if (message == WM_KEYDOWN || message == WM_SYSKEYDOWN) {
+				MSG cmsg;
+				UINT cmsgtype = message == WM_KEYDOWN ? WM_CHAR : WM_SYSCHAR;
+				if (PeekMessage(&cmsg, hWnd, cmsgtype, cmsgtype, PM_NOREMOVE)
+						&& cmsg.lParam == lParam) {
+					// Keystrokes that are followed by a WM_CHAR or WM_SYSCHAR
+					// message; we defer handling them until then.
+					break;
+				}
+			}
 
             if (ckey == 0 || !mouse_key) {
                 int i;
@@ -678,7 +683,7 @@ static LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPAR
                                 key_macro = entry->macro;
                                 break;
                             } else {
-                                if (key_macro == NULL)
+                                if (cshift_down && key_macro == NULL)
                                     key_macro = entry->macro;
                             }
                         }
@@ -1546,7 +1551,7 @@ static void show_printout() {
     }
 
     RECT r;
-    SetRect(&r, 0, 0, 286, 600);
+    SetRect(&r, 0, 0, 358, 600);
     printOutHeight = r.bottom - r.top;
     AdjustWindowRect(&r, WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX
                             /*|WS_MAXIMIZEBOX*/|WS_SIZEBOX|WS_OVERLAPPED, 0);
@@ -1709,31 +1714,41 @@ static void repaint_printout(HDC hdc, int destpos, int x, int y,
     if (printout_bottom >= printout_top)
         /* The buffer is not wrapped */
         BitBlt(hdc, xdest, ydest, width, height,
-                memdc, x, printout_top + y, SRCCOPY);
+                memdc, x - 36, printout_top + y, SRCCOPY);
     else {
         /* The buffer is wrapped */
         if (printout_top + y < PRINT_LINES) {
             if (printout_top + y + height <= PRINT_LINES)
                 /* The rectangle is in the lower part of the buffer */
                 BitBlt(hdc, xdest, ydest, width, height,
-                        memdc, x, printout_top + y, SRCCOPY);
+                        memdc, x - 36, printout_top + y, SRCCOPY);
             else {
                 /* The rectangle spans both parts of the buffer */
                 int part1_height = PRINT_LINES - printout_top - y;
                 int part2_height = height - part1_height;
                 BitBlt(hdc, xdest, ydest, width, part1_height,
-                        memdc, x, printout_top + y, SRCCOPY);
+                        memdc, x - 36, printout_top + y, SRCCOPY);
                 BitBlt(hdc, xdest, ydest + part1_height, width, part2_height,
-                        memdc, x, 0, SRCCOPY);
+                        memdc, x - 36, 0, SRCCOPY);
             }
         } else
             /* The rectangle is in the upper part of the buffer */
             BitBlt(hdc, xdest, ydest, width, height,
-                    memdc, x, y + printout_top - PRINT_LINES, SRCCOPY);
+                    memdc, x - 36, y + printout_top - PRINT_LINES, SRCCOPY);
     }
 
     DeleteDC(memdc);
     DeleteObject(bitmap);
+
+    HBRUSH brush = (HBRUSH) GetStockObject(WHITE_BRUSH);
+    SelectObject(hdc, brush);
+    RECT r;
+    SetRect(&r, 0, ydest,
+                36, ydest + height);
+    FillRect(hdc, &r, brush);
+    SetRect(&r, 322, ydest,
+                358, ydest + height);
+    FillRect(hdc, &r, brush);
 
     if (validate) {
         RECT r;
@@ -1803,7 +1818,21 @@ void shell_blitter(const char *bits, int bytesperline, int x, int y,
 }
 
 void shell_beeper(int frequency, int duration) {
-    Beep(frequency, duration);
+    const int cutoff_freqs[] = { 164, 220, 243, 275, 293, 324, 366, 418, 438, 550 };
+	const int sound_ids[] = { IDR_TONE0_WAVE, IDR_TONE1_WAVE, IDR_TONE2_WAVE,
+		 IDR_TONE3_WAVE, IDR_TONE4_WAVE, IDR_TONE5_WAVE, IDR_TONE6_WAVE,
+		 IDR_TONE7_WAVE, IDR_TONE8_WAVE, IDR_TONE9_WAVE };
+    for (int i = 0; i < 10; i++) {
+        if (frequency <= cutoff_freqs[i]) {
+			PlaySound(MAKEINTRESOURCE(sound_ids[i]),
+				GetModuleHandle(NULL),
+				SND_RESOURCE);
+            return;
+        }
+    }
+	PlaySound(MAKEINTRESOURCE(IDR_SQUEAK_WAVE),
+		GetModuleHandle(NULL),
+		SND_RESOURCE);
 }
 
 static VOID CALLBACK ann_print_timeout(HWND hwnd, UINT uMsg, UINT idEvent, DWORD dwTime) {
@@ -2012,13 +2041,13 @@ void shell_print(const char *text, int length,
             if (newlength != oldlength)
                 printout_length_changed();
             printout_scroll_to_bottom(2 * height + oldlength - newlength);
-            repaint_printout(0, newlength - 2 * height, 286, 2 * height, 1);
+            repaint_printout(0, newlength - 2 * height, 358, 2 * height, 1);
         }
     } else {
         if (hPrintOutWnd != NULL) {
             printout_length_changed();
             printout_scroll_to_bottom(0);
-            repaint_printout(0, oldlength, 286, 2 * height, 1);
+            repaint_printout(0, oldlength, 358, 2 * height, 1);
         }
     }
 
@@ -2039,7 +2068,10 @@ void shell_print(const char *text, int length,
                 fwrite("\357\273\277", 1, 3, print_txt);
         }
 
-        shell_spool_txt(text, length, txt_writer, txt_newliner);
+        if (text != NULL)
+            shell_spool_txt(text, length, txt_writer, txt_newliner);
+        else
+            shell_spool_bitmap_to_txt(bits, bytesperline, x, y, width, height, txt_writer, txt_newliner);
         done_print_txt:;
     }
 

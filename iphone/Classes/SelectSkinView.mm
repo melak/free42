@@ -96,6 +96,14 @@
     [RootViewController showMain];
 }
 
+- (IBAction) loadSkin {
+    [RootViewController showLoadSkin];
+}
+
+- (IBAction) deleteSkin {
+    [RootViewController showDeleteSkin];
+}
+
 - (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     NSUInteger n = [indexPath indexAtPosition:1];
     NSString *name = [skinNames objectAtIndex:n];

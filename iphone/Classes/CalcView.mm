@@ -338,11 +338,12 @@ static CalcView *calcView = nil;
     CGPoint p = [touch locationInView:self];
     int x = (int) p.x;
     int y = (int) p.y;
-    if (skin_in_menu_area(x, y)) {
-        [self showMainMenu];
-    } else if (ckey == 0) {
+    if (ckey == 0) {
         skin_find_key(x, y, ann_shift != 0, &skey, &ckey);
-        if (ckey != 0) {
+        if (ckey == 0) {
+            if (skin_in_menu_area(x, y))
+                [self showMainMenu];
+        } else {
             if (is_running)
                 [self performSelectorInBackground:@selector(touchesBegan2) withObject:NULL];
             else
@@ -446,8 +447,10 @@ static CalcView *calcView = nil;
 - (void) doPaste {
     UIPasteboard *pb = [UIPasteboard generalPasteboard];
     NSString *txt = [pb string];
-    const char *buf = [txt UTF8String];
-    core_paste(buf);
+    if (txt != nil) {
+        const char *buf = [txt UTF8String];
+        core_paste(buf);
+    }
 }
 
 - (void) startRunner {
@@ -1190,6 +1193,29 @@ void shell_print(const char *text, int length,
             print_gif = NULL;
         }
         done_print_gif:;
+    }
+
+    print_text[print_text_bottom++] = (char) (text == NULL ? 255 : length);
+    if (print_text_bottom == PRINT_TEXT_SIZE)
+        print_text_bottom = 0;
+    if (text != NULL) {
+        if (print_text_bottom + length < PRINT_TEXT_SIZE) {
+            memcpy(print_text + print_text_bottom, text, length);
+            print_text_bottom += length;
+        } else {
+            int part = PRINT_TEXT_SIZE - print_text_bottom;
+            memcpy(print_text + print_text_bottom, text, part);
+            memcpy(print_text, text + part, length - part);
+            print_text_bottom = length - part;
+        }
+    }
+    print_text_pixel_height += text == NULL ? 16 : 9;
+    while (print_text_pixel_height > PRINT_LINES - 1) {
+        int tll = print_text[print_text_top] == 255 ? 16 : 9;
+        print_text_pixel_height -= tll;
+        print_text_top += tll == 16 ? 1 : (print_text[print_text_top] + 1);
+        if (print_text_top >= PRINT_TEXT_SIZE)
+            print_text_top -= PRINT_TEXT_SIZE;
     }
 }
 

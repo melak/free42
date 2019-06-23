@@ -28,6 +28,7 @@
 #import "core_display.h"
 #import "Free42AppDelegate.h"
 #import "ProgramListDataSource.h"
+#import "SkinListDataSource.h"
 #import "CalcView.h"
 #import "FileOpenPanel.h"
 #import "FileSavePanel.h"
@@ -39,6 +40,7 @@ static SystemSoundID soundIDs[11];
 
 static bool launchingWithPrintoutVisible;
 static bool scrollPrintoutToBottomInitially = true;
+static bool loadSkinsWindowMapped = false;
 
 state_type state;
 char free42dirname[FILENAMELEN];
@@ -86,6 +88,12 @@ static bool ann_print_timeout_active = false;
 unsigned char *print_bitmap;
 int printout_top;
 int printout_bottom;
+// Room for PRINT_LINES / 18 lines, plus two, plus one byte
+#define PRINT_TEXT_SIZE 12551
+unsigned char *print_text;
+int print_text_top;
+int print_text_bottom;
+int print_text_pixel_height;
 
 static FILE *print_txt = NULL;
 static FILE *print_gif = NULL;
@@ -129,6 +137,12 @@ static bool is_file(const char *name);
 @synthesize aboutWindow;
 @synthesize aboutVersion;
 @synthesize aboutCopyright;
+@synthesize loadSkinsWindow;
+@synthesize loadSkinsURL;
+@synthesize loadSkinsWebView;
+@synthesize deleteSkinsWindow;
+@synthesize skinListView;
+@synthesize skinListDataSource;
 
 - (void) startRunner {
     [self performSelectorInBackground:@selector(runner) withObject:NULL];
@@ -198,6 +212,7 @@ static bool is_file(const char *name);
     /******************************/
     
     print_bitmap = (unsigned char *) malloc(PRINT_SIZE);
+    print_text = (unsigned char *) malloc(PRINT_TEXT_SIZE);
     // TODO - handle memory allocation failure
     
     FILE *printfile = fopen(printfilename, "r");
@@ -206,16 +221,37 @@ static bool is_file(const char *name);
         if (n == sizeof(int)) {
             int bytes = printout_bottom * PRINT_BYTESPERLINE;
             n = fread(print_bitmap, 1, bytes, printfile);
-            if (n != bytes)
+            if (n == bytes) {
+                n = fread(&print_text_bottom, 1, sizeof(int), printfile);
+                int n2 = fread(&print_text_pixel_height, 1, sizeof(int), printfile);
+                if (n == sizeof(int) && n2 == sizeof(int)) {
+                    n = fread(print_text, 1, print_text_bottom, printfile);
+                    if (n != print_text_bottom) {
+                        print_text_bottom = 0;
+                        print_text_pixel_height = 0;
+                    }
+                } else {
+                    print_text_bottom = 0;
+                    print_text_pixel_height = 0;
+                }
+            } else {
                 printout_bottom = 0;
-        } else
+                print_text_bottom = 0;
+                print_text_pixel_height = 0;
+            }
+        } else {
             printout_bottom = 0;
+            print_text_bottom = 0;
+            print_text_pixel_height = 0;
+        }
         fclose(printfile);
-    } else
+    } else {
         printout_bottom = 0;
+        print_text_bottom = 0;
+        print_text_pixel_height = 0;
+    }
     printout_top = 0;
-    for (int n = printout_bottom * PRINT_BYTESPERLINE; n < PRINT_SIZE; n++)
-        print_bitmap[n] = 0;
+    print_text_top = 0;
 }
 
 static void low_battery_checker(CFRunLoopTimerRef timer, void *info) {
@@ -303,6 +339,7 @@ static void low_battery_checker(CFRunLoopTimerRef timer, void *info) {
     
     printfile = fopen(printfilename, "w");
     if (printfile != NULL) {
+        // Write bitmap
         length = printout_bottom - printout_top;
         if (length < 0)
             length += PRINT_LINES;
@@ -323,6 +360,28 @@ static void low_battery_checker(CFRunLoopTimerRef timer, void *info) {
             n = fwrite(print_bitmap, 1,
                        PRINT_BYTESPERLINE * printout_bottom, printfile);
             if (n != PRINT_BYTESPERLINE * printout_bottom)
+                goto failed;
+        }
+        // Write text
+        length = print_text_bottom - print_text_top;
+        if (length < 0)
+            length += PRINT_TEXT_SIZE;
+        n = fwrite(&length, 1, sizeof(int), printfile);
+        if (n != sizeof(int))
+            goto failed;
+        n = fwrite(&print_text_pixel_height, 1, sizeof(int), printfile);
+        if (n != sizeof(int))
+            goto failed;
+        if (print_text_bottom >= print_text_top) {
+            n = fwrite(print_text + print_text_top, 1, length, printfile);
+            if (n != length)
+                goto failed;
+        } else {
+            n = fwrite(print_text + print_text_top, 1, PRINT_TEXT_SIZE - print_text_top, printfile);
+            if (n != PRINT_TEXT_SIZE - print_text_top)
+                goto failed;
+            n = fwrite(print_text, 1, print_text_bottom, printfile);
+            if (n != print_text_bottom)
                 goto failed;
         }
         
@@ -364,7 +423,7 @@ static void low_battery_checker(CFRunLoopTimerRef timer, void *info) {
 
 - (void)windowWillClose:(NSNotification *)notification {
     NSWindow *window = [notification object];
-    if (window == aboutWindow || window == preferencesWindow || window == selectProgramsWindow) {
+    if (window == aboutWindow || window == preferencesWindow || window == selectProgramsWindow || window == deleteSkinsWindow) {
         [NSApp stopModal];
         if (window == preferencesWindow)
             [instance getPreferences];
@@ -372,6 +431,8 @@ static void low_battery_checker(CFRunLoopTimerRef timer, void *info) {
         [NSApp terminate:nil];
     else if (window == printWindow)
         state.printWindowMapped = 0;
+    else if (window == loadSkinsWindow)
+        loadSkinsWindowMapped = false;
 }
 
 - (void)windowDidBecomeKey:(NSNotification *)notification {
@@ -463,6 +524,7 @@ static void low_battery_checker(CFRunLoopTimerRef timer, void *info) {
 
 - (IBAction) clearPrintOut:(id)sender {
     printout_top = printout_bottom = 0;
+    print_text_top = print_text_bottom = print_text_pixel_height = 0;
     NSSize s;
     s.width = 358;
     s.height = 0;
@@ -554,10 +616,15 @@ static void low_battery_checker(CFRunLoopTimerRef timer, void *info) {
     NSPasteboard *pb = [NSPasteboard generalPasteboard];
     NSArray *types = [NSArray arrayWithObjects: NSStringPboardType, nil];
     [pb declareTypes:types owner:self];
-    char *buf = core_copy();
-    NSString *txt = [NSString stringWithUTF8String:buf];
+    NSString *txt;
+    if ([loadSkinsWindow isKeyWindow]) {
+        txt = [loadSkinsURL stringValue];
+    } else {
+        char *buf = core_copy();
+        txt = [NSString stringWithUTF8String:buf];
+        free(buf);
+    }
     [pb setString:txt forType:NSStringPboardType];
-    free(buf);
 }
 
 - (IBAction) doPaste:(id)sender {
@@ -566,9 +633,256 @@ static void low_battery_checker(CFRunLoopTimerRef timer, void *info) {
     NSString *bestType = [pb availableTypeFromArray:types];
     if (bestType != nil) {
         NSString *txt = [pb stringForType:NSStringPboardType];
-        const char *buf = [txt UTF8String];
-        core_paste(buf);
+        if ([loadSkinsWindow isKeyWindow]) {
+            [loadSkinsURL setStringValue:txt];
+        } else {
+            const char *buf = [txt UTF8String];
+            core_paste(buf);
+        }
     }
+}
+
+static char *tb;
+static int tblen, tbcap;
+
+static void tbwriter(const char *text, int length) {
+    if (tblen + length > tbcap) {
+        tbcap += length + 8192;
+        tb = (char *) realloc(tb, tbcap);
+    }
+    if (tb != NULL) {
+        memcpy(tb + tblen, text, length);
+        tblen += length;
+    }
+}
+
+static void tbnewliner() {
+    tbwriter("\n", 1);
+}
+
+static void tbnonewliner() {
+    // No-op
+}
+
+- (IBAction) doCopyPrintOutAsText:(id)sender {
+    NSPasteboard *pb = [NSPasteboard generalPasteboard];
+    NSArray *types = [NSArray arrayWithObjects: NSStringPboardType, nil];
+    [pb declareTypes:types owner:self];
+
+    tb = NULL;
+    tblen = tbcap = 0;
+
+    int len = print_text_bottom - print_text_top;
+    if (len < 0)
+        len += PRINT_TEXT_SIZE;
+    // Calculate effective top, since printout_top can point
+    // at a truncated line, and we want to skip those when
+    // copying
+    int top = printout_bottom - 2 * print_text_pixel_height;
+    if (top < 0)
+        top += PRINT_LINES;
+    int p = print_text_top;
+    int pixel_v = 0;
+    while (len > 0) {
+        int z = print_text[p++];
+        if (z == 255) {
+            char buf[34];
+            for (int v = 0; v < 16; v += 2) {
+                for (int vv = 0; vv < 2; vv++) {
+                    int V = top + (pixel_v + v + vv) * 2;
+                    if (V >= PRINT_LINES)
+                        V -= PRINT_LINES;
+                    for (int h = 0; h < 17; h++) {
+                        unsigned char a = print_bitmap[V * PRINT_BYTESPERLINE + 2 * h + 1];
+                        unsigned char b = print_bitmap[V * PRINT_BYTESPERLINE + 2 * h];
+                        buf[vv * 17 + h] = (a & 128) | ((a & 32) << 1) | ((a & 8) << 2) | ((a & 2) << 3) | ((b & 128) >> 4) | ((b & 32) >> 3) | ((b & 8) >> 2) | ((b & 2) >> 1);
+                    }
+                }
+                shell_spool_bitmap_to_txt(buf, 17, 0, 0, 131, 2, tbwriter, tbnewliner);
+            }
+            pixel_v += 16;
+        } else {
+            if (p + z < PRINT_TEXT_SIZE) {
+                shell_spool_txt((const char *) (print_text + p), z, tbwriter, tbnewliner);
+                p += z;
+            } else {
+                int d = PRINT_TEXT_SIZE - p;
+                shell_spool_txt((const char *) (print_text + p), d, tbwriter, tbnonewliner);
+                shell_spool_txt((const char *) print_text, z - d, tbwriter, tbnewliner);
+                p = z - d;
+            }
+            len -= z;
+            pixel_v += 9;
+        }
+        len--;
+    }
+    tbwriter("\0", 1);
+
+    NSString *txt;
+    if (tb == NULL) {
+        txt = @"";
+    } else {
+        txt = [NSString stringWithCString:tb encoding:NSUTF8StringEncoding];
+        free(tb);
+    }
+
+    [pb setString:txt forType:NSStringPboardType];
+}
+
+- (IBAction) doCopyPrintOutAsImage:(id)sender {
+    NSPasteboard *pb = [NSPasteboard generalPasteboard];
+    NSArray *types = [NSArray arrayWithObjects: NSTIFFPboardType, nil];
+    [pb declareTypes:types owner:self];
+    
+    int height = printout_bottom - printout_top;
+    if (height < 0)
+        height += PRINT_LINES;
+    
+    NSBitmapImageRep *img = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL pixelsWide:358 pixelsHigh:(height == 0 ? 1 : height) bitsPerSample:1 samplesPerPixel:1 hasAlpha:NO isPlanar:NO colorSpaceName:NSCalibratedWhiteColorSpace bytesPerRow:45 bitsPerPixel:1];
+    unsigned char *data = [img bitmapData];
+    if (height == 0) {
+        memset(data, 255, 36);
+    } else {
+        for (int v = 0; v < height; v++) {
+            int vv = printout_top + v;
+            if (vv >= PRINT_LINES)
+                vv -= PRINT_LINES;
+            unsigned char *src = print_bitmap + vv * PRINT_BYTESPERLINE;
+            *data++ = 255;
+            *data++ = 255;
+            *data++ = 255;
+            *data++ = 255;
+            unsigned char pc = 0;
+            for (int h = 0; h <= 36; h++) {
+                unsigned char c = h == 36 ? 0 : src[h];
+                *data++ = (((pc & 16) << 3) | ((pc & 32) << 1) | ((pc & 64) >> 1) | ((pc & 128) >> 3) | ((c & 1) << 3) | ((c & 2) << 1) | ((c & 4) >> 1) | ((c & 8) >> 3)) ^ 255;
+                pc = c;
+            }
+            *data++ = 255;
+            *data++ = 255;
+            *data++ = 255;
+            *data++ = 255;
+        }
+    }
+    
+    NSData *tiff = [img TIFFRepresentation];
+    [pb setData:tiff forType:NSTIFFPboardType];
+}
+
+- (IBAction) paperAdvance:(id)sender {
+    static const char *bits = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+    shell_print("", 0, bits, 18, 0, 0, 143, 9);
+}
+
+- (IBAction) loadSkins:(id)sender {
+    if (!loadSkinsWindowMapped) {
+        NSString *url = @"https://thomasokken.com/free42/skins/";
+        [loadSkinsURL setStringValue:url];
+        [loadSkinsWebView setMainFrameURL:url];
+        loadSkinsWindowMapped = true;
+    }
+    [loadSkinsWindow makeKeyAndOrderFront:self];
+    [loadSkinsURL becomeFirstResponder];
+}
+
+- (IBAction) loadSkinsGo:(id)sender {
+    NSString *url = [loadSkinsURL stringValue];
+    [loadSkinsWebView setMainFrameURL:url];
+}
+
+- (IBAction) loadSkinsBack:(id)sender {
+    [loadSkinsWebView goBack];
+}
+
+- (IBAction) loadSkinsForward:(id)sender {
+    [loadSkinsWebView goForward];
+}
+
+- (void)webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame {
+    [loadSkinsURL setStringValue:[loadSkinsWebView mainFrameURL]];
+}
+
+- (BOOL) tryLoad:(NSString *)url asFile:(NSString *)name {
+    NSURLRequest *req = [NSURLRequest requestWithURL:[NSURL URLWithString:url]];
+    NSURLResponse *resp;
+    NSError *err;
+    NSData *data = [NSURLConnection sendSynchronousRequest:req returningResponse:&resp error:&err];
+    if (data == nil)
+        return NO;
+    NSString *fname = [NSString stringWithFormat:@"%s/%@", free42dirname, name];
+    return [data writeToFile:fname atomically:NO];
+}
+
+- (IBAction) loadSkinsLoad:(id)sender {
+    NSString *url = [loadSkinsURL stringValue];
+    NSURLComponents *u = [NSURLComponents componentsWithString:url];
+    NSString *path = [u path];
+    if (path == nil) {
+        show_message("Error", "Invalid Skin URL");
+        return;
+    }
+    NSString *gifUrl = nil, *layoutUrl = nil;
+    if ([path hasSuffix:@".gif"]) {
+        gifUrl = url;
+        NSRange r = NSMakeRange(0, [path length] - 3);
+        NSString *layoutPath = [[path substringWithRange:r] stringByAppendingString:@"layout"];
+        [u setPath:layoutPath];
+        layoutUrl = [u string];
+    } else if ([path hasSuffix:@".layout"]) {
+        layoutUrl = url;
+        NSRange r = NSMakeRange(0, [path length] - 6);
+        NSString *gifPath = [[path substringWithRange:r] stringByAppendingString:@"gif"];
+        [u setPath:gifPath];
+        gifUrl = [u string];
+    } else {
+        show_message("Error", "Invalid Skin URL");
+        return;
+    }
+    if ([self tryLoad:gifUrl asFile:@"_temp_gif_"]
+        && [self tryLoad:layoutUrl asFile:@"_temp_layout_"]) {
+        char buf1[FILENAMELEN], buf2[FILENAMELEN];
+        snprintf(buf1, FILENAMELEN, "%s/_temp_gif_", free42dirname);
+        NSURL *u = [NSURL URLWithString:gifUrl];
+        snprintf(buf2, FILENAMELEN, "%s/%s", free42dirname, [[u lastPathComponent] UTF8String]);
+        rename(buf1, buf2);
+        snprintf(buf1, FILENAMELEN, "%s/_temp_layout_", free42dirname);
+        u = [NSURL URLWithString:layoutUrl];
+        snprintf(buf2, FILENAMELEN, "%s/%s", free42dirname, [[u lastPathComponent] UTF8String]);
+        rename(buf1, buf2);
+    } else {
+        char buf[FILENAMELEN];
+        snprintf(buf, FILENAMELEN, "%s/_temp_gif_", free42dirname);
+        remove(buf);
+        snprintf(buf, FILENAMELEN, "%s/_temp_layout_", free42dirname);
+        remove(buf);
+        show_message("Error", "Loading Skin Failed");
+    }
+}
+
+- (IBAction) deleteSkins:(id)sender {
+    [skinListDataSource loadSkinNames];
+    [skinListView reloadData];
+    [NSApp runModalForWindow:deleteSkinsWindow];
+}
+
+- (IBAction) deleteSkinsCancel:(id)sender {
+    [NSApp stopModal];
+    [deleteSkinsWindow orderOut:self];
+}
+
+- (IBAction) deleteSkinsOK:(id)sender {
+    [NSApp stopModal];
+    [deleteSkinsWindow orderOut:self];
+    bool *selection = [skinListDataSource getSelection];
+    NSString **names = [skinListDataSource getNames];
+    int count = [skinListDataSource numberOfRowsInTableView:nil];
+    for (int i = 0; i < count; i++)
+        if (selection[i]) {
+            const char *fname = [[NSString stringWithFormat:@"%s/%@.gif", free42dirname, names[i]] UTF8String];
+            remove(fname);
+            fname = [[NSString stringWithFormat:@"%s/%@.layout", free42dirname, names[i]] UTF8String];
+            remove(fname);
+        }
 }
 
 static char version[32] = "";
@@ -1022,8 +1336,12 @@ void calc_keymodifierschanged(NSUInteger flags) {
 }
 
 static void show_message(const char *title, const char *message) {
-    // TODO!
-    fprintf(stderr, "%s\n", message);
+    NSAlert *alert = [[NSAlert alloc] init];
+    [alert addButtonWithTitle:@"OK"];
+    [alert setMessageText:[NSString stringWithCString:title encoding:NSUTF8StringEncoding]];
+    [alert setInformativeText:[NSString stringWithCString:message encoding:NSUTF8StringEncoding]];
+    [alert setAlertStyle:NSCriticalAlertStyle];
+    [alert runModal];
 }
 
 int8 shell_random_seed() {
@@ -1130,6 +1448,7 @@ void shell_powerdown() {
 void shell_print(const char *text, int length,
                  const char *bits, int bytesperline,
                  int x, int y, int width, int height) {
+
     int xx, yy;
     int oldlength, newlength;
     
@@ -1259,6 +1578,29 @@ void shell_print(const char *text, int length,
             print_gif = NULL;
         }
         done_print_gif:;
+    }
+
+    print_text[print_text_bottom++] = (char) (text == NULL ? 255 : length);
+    if (print_text_bottom == PRINT_TEXT_SIZE)
+        print_text_bottom = 0;
+    if (text != NULL) {
+        if (print_text_bottom + length < PRINT_TEXT_SIZE) {
+            memcpy(print_text + print_text_bottom, text, length);
+            print_text_bottom += length;
+        } else {
+            int part = PRINT_TEXT_SIZE - print_text_bottom;
+            memcpy(print_text + print_text_bottom, text, part);
+            memcpy(print_text, text + part, length - part);
+            print_text_bottom = length - part;
+        }
+    }
+    print_text_pixel_height += text == NULL ? 16 : 9;
+    while (print_text_pixel_height > PRINT_LINES / 2 - 1) {
+        int tll = print_text[print_text_top] == 255 ? 16 : 9;
+        print_text_pixel_height -= tll;
+        print_text_top += tll == 16 ? 1 : (print_text[print_text_top] + 1);
+        if (print_text_top >= PRINT_TEXT_SIZE)
+            print_text_top -= PRINT_TEXT_SIZE;
     }
 }
 
